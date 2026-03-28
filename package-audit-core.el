@@ -40,8 +40,12 @@
   :type 'directory
   :group 'package-audit)
 
-(defcustom package-audit-report-directory "reports"
-  "Default report directory relative to the repository root."
+(defcustom package-audit-report-directory
+  (expand-file-name "reports" user-emacs-directory)
+  "Default report directory for generated package-audit reports.
+
+When absolute, reports are written there directly.  Relative override values
+passed at runtime are still resolved against the audited repository root."
   :type 'directory
   :group 'package-audit)
 

@@ -24,6 +24,30 @@
       (mapconcat (lambda (item) (format "- `%s`" item)) items "\n")
     "- None"))
 
+(defun package-audit--markdown-summary-table (counts)
+  "Render COUNTS as a Markdown summary table."
+  (string-join
+   (list
+    "| Symbol / Expression | Meaning | Count |"
+    "| --- | --- | ---: |"
+    (format "| `R` | Explicit init roots | %s |"
+            (alist-get 'explicit_init_roots counts))
+    (format "| `S` | Selected packages | %s |"
+            (alist-get 'package_selected_packages counts))
+    (format "| `R \\\\ S` | Explicit init roots missing from package-selected-packages | %s |"
+            (alist-get 'explicit_init_roots_missing_from_package_selected counts))
+    (format "| `S \\\\ R` | Selected packages not explicit in init | %s |"
+            (alist-get 'selected_not_in_init counts))
+    (format "| `(S \\\\ R) ∩ C` | Selected and customize-only packages | %s |"
+            (alist-get 'selected_and_customize_only counts))
+    (format "| `I` | Installed packages | %s |"
+            (alist-get 'installed_packages counts))
+    (format "| `D \\\\ ((R ∪ S) ∩ I)` | Dependency-only retained installs | %s |"
+            (alist-get 'retained_dependency_only counts))
+    (format "| `I \\\\ D` | Definitively purgeable installs | %s |"
+            (alist-get 'definitively_purgeable counts)))
+   "\n"))
+
 (defun package-audit--markdown-package-vars (pairs)
   "Render package customization PAIRS as Markdown bullets."
   (if pairs
@@ -51,9 +75,21 @@
        "\n")
     "- None"))
 
-(defun package-audit--markdown-set-heading (title expression json-key)
-  "Return Markdown heading for TITLE with set EXPRESSION and JSON-KEY."
-  (format "## %s (`%s`, JSON: `%s`)" title expression json-key))
+(defun package-audit--markdown-metadata-table (expression json-key)
+  "Return a one-row Markdown table for EXPRESSION and JSON-KEY."
+  (if expression
+      (string-join
+       (list
+        "| Set expression | JSON key |"
+        "| --- | --- |"
+        (format "| `%s` | `%s` |" expression json-key))
+       "\n")
+    (string-join
+     (list
+      "| JSON key |"
+      "| --- |"
+      (format "| `%s` |" json-key))
+     "\n")))
 
 (defun package-audit--markdown-gnupg-note (protected-dirs)
   "Return a Markdown note for PROTECTED-DIRS when `gnupg' is present."
@@ -79,80 +115,98 @@
               (expand-file-name package-audit-init-source-file
                                 (alist-get 'repo_dir data)))
       ""
-      "Set model reference: the sections below use the same `R`, `S`, `I`, `C`, and `D` notation described in `user-lisp/package-audit/README.md`."
+      "Set model reference: the sections below use the same `R`, `S`, `I`, `C`, and `D` notation described in `package-audit/README.md`."
       ""
       "## Summary"
       ""
-      (format "- Explicit init roots: %s"
-              (alist-get 'explicit_init_roots counts))
-      (format "- Selected packages: %s"
-              (alist-get 'package_selected_packages counts))
-      (format "- Explicit init roots missing from package-selected-packages: %s"
-              (alist-get 'explicit_init_roots_missing_from_package_selected counts))
-      (format "- Selected but not explicit in init: %s"
-              (alist-get 'selected_not_in_init counts))
-      (format "- Selected and customize-only: %s"
-              (alist-get 'selected_and_customize_only counts))
-      (format "- Installed packages: %s"
-              (alist-get 'installed_packages counts))
-      (format "- Dependency-only retained installs: %s"
-              (alist-get 'retained_dependency_only counts))
-      (format "- Definitively purgeable installs: %s"
-              (alist-get 'definitively_purgeable counts))
+      (package-audit--markdown-summary-table counts)
       ""
-      (package-audit--markdown-set-heading
-       "Explicit init roots missing from package-selected-packages"
+      "## Explicit init roots missing from package-selected-packages"
+      ""
+      (package-audit--markdown-metadata-table
        "R \\ S"
        "explicit_init_roots_missing_from_package_selected")
+      ""
+      "These are packages declared explicitly in init but not yet persisted in `package-selected-packages`."
       ""
       (package-audit--markdown-bullets
        (alist-get 'explicit_init_roots_missing_from_package_selected data))
       ""
-      (package-audit--markdown-set-heading
-       "Selected But Not Explicit In init.org"
+      "## Selected But Not Explicit In init.org"
+      ""
+      (package-audit--markdown-metadata-table
        "S \\ R"
        "selected_not_in_init")
+      ""
+      "These are selected package roots that do not currently have an explicit package declaration in init."
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_not_in_init data))
       ""
-      (package-audit--markdown-set-heading
-       "Selected And Customize-Only"
+      "## Selected And Customize-Only"
+      ""
+      (package-audit--markdown-metadata-table
        "(S \\ R) ∩ C"
        "selected_and_customize_only")
+      ""
+      "These packages are absent from init but still appear justified by Customize-owned variables."
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_and_customize_only data))
       ""
-      "## Package Customize Variables (`C` support map, JSON: `selected_customize_variables`)"
+      "## Package Customize Variables"
+      ""
+      (package-audit--markdown-metadata-table
+       nil
+       "selected_customize_variables")
+      ""
+      "This is the package-to-variable support map used to understand the `C` portion of the model rather than a standalone set."
       ""
       (package-audit--markdown-package-vars custom-vars)
       ""
-      (package-audit--markdown-set-heading
-       "Dependency-Only Retained Installs"
-       "closure((R ∪ S) ∩ I) \\ ((R ∪ S) ∩ I)"
+      "## Dependency-Only Retained Installs"
+      ""
+      (package-audit--markdown-metadata-table
+       "D \\ ((R ∪ S) ∩ I)"
        "retained_dependency_only")
+      ""
+      "These packages are retained only because they are dependencies of the installed retained roots, not because they are roots themselves."
       ""
       (package-audit--markdown-reasons
        reasons
        (alist-get 'retained_dependency_only data))
       ""
-      (package-audit--markdown-set-heading
-       "Definitively Purgeable Installs"
-       "I \\ closure((R ∪ S) ∩ I)"
+      "## Definitively Purgeable Installs"
+      ""
+      (package-audit--markdown-metadata-table
+       "I \\ D"
        "definitively_purgeable")
+      ""
+      "These installed packages are outside the retained dependency closure and are the cleanest removal candidates."
       ""
       (package-audit--markdown-bullets
        (alist-get 'definitively_purgeable data))
       ""
       "## Notable Gaps"
       ""
-      "### Explicit roots missing from ELPA (`R \\ I`, JSON: `explicit_roots_missing_from_elpa`)"
+      "### Explicit roots missing from ELPA"
+      ""
+      (package-audit--markdown-metadata-table
+       "R \\ I"
+       "explicit_roots_missing_from_elpa")
+      ""
+      "These are explicit init roots that are not currently installed in the ELPA package tree."
       ""
       (package-audit--markdown-bullets
        (alist-get 'explicit_roots_missing_from_elpa data))
       ""
-      "### Selected packages missing from ELPA (`S \\ I`, JSON: `selected_missing_from_elpa`)"
+      "### Selected packages missing from ELPA"
+      ""
+      (package-audit--markdown-metadata-table
+       "S \\ I"
+       "selected_missing_from_elpa")
+      ""
+      "These are selected packages that are not currently installed in the ELPA package tree."
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_missing_from_elpa data))
@@ -167,6 +221,18 @@
       ""
       (package-audit--markdown-bullets
        (alist-get 'ignored_non_package_elpa_directories data))
+      ""
+      "## Definitions"
+      ""
+      "| Term | Meaning |"
+      "| --- | --- |"
+      "| Init root | A third-party package root inferred from init declarations and counted in `R`. |"
+      "| Selected package | A package root listed in `package-selected-packages` and counted in `S`. |"
+      "| Installed package | A package currently present in the ELPA install tree and counted in `I`. |"
+      "| Customized package support (`C`) | Package evidence inferred from Customize-owned variables, used to explain packages that may still be justified outside init declarations. |"
+      "| Dependency closure (`D`) | The retained installed roots and every installed dependency reachable from them. |"
+      "| Protected non-package ELPA directory | Package-manager state under `elpa/` that is intentionally preserved, such as `archives` or `gnupg`. |"
+      "| Ignored non-package ELPA directory | A top-level `elpa/` directory that is not an installed package and is not on the protected list. |"
       "")
      "\n")))
 
