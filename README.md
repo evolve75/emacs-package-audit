@@ -47,6 +47,15 @@ The audit reports these set differences and intersections directly:
 The audit also emits `selected_customize_variables`, which is a
 package-to-variable map rather than a set.
 
+The Markdown report headings include these same expressions so the
+human-readable output maps directly back to the set model.
+
+`ignored_non_package_elpa_directories` is intentionally outside the set
+algebra above. It reports extra top-level directories in the ELPA tree
+that are not installed packages. Protected package-manager state
+directories such as `gnupg` are reported separately and are never
+offered for deletion.
+
 ## Intended Invariants
 
 - Intent and selection should stay aligned: ideally `R = S`

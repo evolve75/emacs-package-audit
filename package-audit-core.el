@@ -55,6 +55,14 @@
   :type 'string
   :group 'package-audit)
 
+(defcustom package-audit-protected-elpa-directories '("archives" "gnupg")
+  "Non-package directories under the ELPA tree that should never be deleted.
+
+These directories are package-manager state rather than install candidates.
+For example, `gnupg' is package.el's GnuPG home for package signature data."
+  :type '(repeat string)
+  :group 'package-audit)
+
 (defvar package-audit--last-repo-root nil
   "Repository root used for the latest cached package audit state.")
 
@@ -407,10 +415,21 @@
       (dolist (path (directory-files install-dir t directory-files-no-dot-files-regexp))
         (when (file-directory-p path)
           (let ((name (file-name-nondirectory path)))
-            (unless (or (member name '("archives"))
+            (unless (or (member name package-audit-protected-elpa-directories)
                         (member name installed-dir-names))
               (push name extra-dirs))))))
     (sort extra-dirs #'string<)))
+
+(defun package-audit--protected-elpa-dirs-present (repo-root)
+  "Return protected ELPA directories currently present for REPO-ROOT."
+  (let ((install-dir (package-audit--package-install-path repo-root))
+        present)
+    (when (file-directory-p install-dir)
+      (dolist (dir-name package-audit-protected-elpa-directories)
+        (when (file-directory-p (expand-file-name dir-name install-dir))
+          ;; Preserve configured order so report notes stay predictable.
+          (push dir-name present))))
+    (nreverse present)))
 
 ;; ---------------------------------------------------------------------------
 ;; Audit state construction
@@ -449,7 +468,9 @@
          (retained-dependencies
           (package-audit--symbol-difference retained-closure retained-roots))
          (purgeable
-          (package-audit--symbol-difference installed-names retained-closure)))
+          (package-audit--symbol-difference installed-names retained-closure))
+         (protected-elpa-directories
+          (package-audit--protected-elpa-dirs-present repo-root)))
     (list
      :selected selected
      :custom-variables custom-variables
@@ -469,6 +490,8 @@
      (package-audit--symbol-difference init-roots installed-names)
      :selected-missing-from-elpa
      (package-audit--symbol-difference selected installed-names)
+     :protected-elpa-directories
+     protected-elpa-directories
      :ignored-non-package-elpa-directories
      (package-audit--non-package-elpa-dirs repo-root installed))))
 
@@ -528,6 +551,8 @@
       (selected_missing_from_elpa
        . ,(package-audit--symbol-strings
            (plist-get state :selected-missing-from-elpa)))
+      (protected_non_package_elpa_directories
+       . ,(plist-get state :protected-elpa-directories))
       (ignored_non_package_elpa_directories
        . ,(plist-get state :ignored-non-package-elpa-directories))
       (counts

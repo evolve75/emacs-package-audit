@@ -93,6 +93,10 @@
 
 (defun package-audit--delete-stale-directory (repo-root dir-name)
   "Delete ignored install directory DIR-NAME under REPO-ROOT."
+  (when (member dir-name package-audit-protected-elpa-directories)
+    ;; Never remove package-manager state directories like `gnupg',
+    ;; even if a stale audit snapshot somehow hands us one.
+    (user-error "Refusing to delete protected ELPA directory %s" dir-name))
   (let ((path (expand-file-name dir-name
                                 (package-audit--package-install-path repo-root))))
     (unless (file-directory-p path)
@@ -174,10 +178,14 @@
          (state (package-audit--ensure-state resolved-root))
          (dirs (copy-sequence
                 (plist-get state :ignored-non-package-elpa-directories)))
+         (safe-dirs (cl-remove-if
+                     (lambda (dir-name)
+                       (member dir-name package-audit-protected-elpa-directories))
+                     dirs))
          (deleted 0))
-    (if (null dirs)
+    (if (null safe-dirs)
         (message "No ignored install directories were found")
-      (dolist (dir-name dirs)
+      (dolist (dir-name safe-dirs)
         (when (y-or-n-p (format "Delete ignored install directory %s? " dir-name))
           (package-audit--delete-stale-directory resolved-root dir-name)
           (setq deleted (1+ deleted))))

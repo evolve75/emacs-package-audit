@@ -51,11 +51,26 @@
        "\n")
     "- None"))
 
+(defun package-audit--markdown-set-heading (title expression json-key)
+  "Return Markdown heading for TITLE with set EXPRESSION and JSON-KEY."
+  (format "## %s (`%s`, JSON: `%s`)" title expression json-key))
+
+(defun package-audit--markdown-gnupg-note (protected-dirs)
+  "Return a Markdown note for PROTECTED-DIRS when `gnupg' is present."
+  (when (member "gnupg" protected-dirs)
+    (string-join
+     '("> Note: `elpa/gnupg` was found and is intentionally protected."
+       "> It is package.el's GnuPG home for package signature and trust state,"
+       "> not an ELPA package directory, and package-audit will not suggest or delete it.")
+     "\n")))
+
 (defun package-audit-render-markdown (data)
   "Render package audit DATA as Markdown."
   (let* ((counts (alist-get 'counts data))
          (custom-vars (alist-get 'selected_customize_variables data))
-         (reasons (alist-get 'retained_dependency_reasons data)))
+         (reasons (alist-get 'retained_dependency_reasons data))
+         (protected-dirs (alist-get 'protected_non_package_elpa_directories data))
+         (gnupg-note (or (package-audit--markdown-gnupg-note protected-dirs) "")))
     (string-join
      (list
       "# Emacs Package Audit"
@@ -63,6 +78,8 @@
       (format "Generated from `%s`, the configured custom state file, and installed package metadata."
               (expand-file-name package-audit-init-source-file
                                 (alist-get 'repo_dir data)))
+      ""
+      "Set model reference: the sections below use the same `R`, `S`, `I`, `C`, and `D` notation described in `user-lisp/package-audit/README.md`."
       ""
       "## Summary"
       ""
@@ -83,49 +100,70 @@
       (format "- Definitively purgeable installs: %s"
               (alist-get 'definitively_purgeable counts))
       ""
-      "## Explicit init roots missing from package-selected-packages"
+      (package-audit--markdown-set-heading
+       "Explicit init roots missing from package-selected-packages"
+       "R \\ S"
+       "explicit_init_roots_missing_from_package_selected")
       ""
       (package-audit--markdown-bullets
        (alist-get 'explicit_init_roots_missing_from_package_selected data))
       ""
-      "## Selected But Not Explicit In init.org"
+      (package-audit--markdown-set-heading
+       "Selected But Not Explicit In init.org"
+       "S \\ R"
+       "selected_not_in_init")
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_not_in_init data))
       ""
-      "## Selected And Customize-Only"
+      (package-audit--markdown-set-heading
+       "Selected And Customize-Only"
+       "(S \\ R) ∩ C"
+       "selected_and_customize_only")
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_and_customize_only data))
       ""
-      "## Package Customize Variables"
+      "## Package Customize Variables (`C` support map, JSON: `selected_customize_variables`)"
       ""
       (package-audit--markdown-package-vars custom-vars)
       ""
-      "## Dependency-Only Retained Installs"
+      (package-audit--markdown-set-heading
+       "Dependency-Only Retained Installs"
+       "closure((R ∪ S) ∩ I) \\ ((R ∪ S) ∩ I)"
+       "retained_dependency_only")
       ""
       (package-audit--markdown-reasons
        reasons
        (alist-get 'retained_dependency_only data))
       ""
-      "## Definitively Purgeable Installs"
+      (package-audit--markdown-set-heading
+       "Definitively Purgeable Installs"
+       "I \\ closure((R ∪ S) ∩ I)"
+       "definitively_purgeable")
       ""
       (package-audit--markdown-bullets
        (alist-get 'definitively_purgeable data))
       ""
       "## Notable Gaps"
       ""
-      "### Explicit roots missing from ELPA"
+      "### Explicit roots missing from ELPA (`R \\ I`, JSON: `explicit_roots_missing_from_elpa`)"
       ""
       (package-audit--markdown-bullets
        (alist-get 'explicit_roots_missing_from_elpa data))
       ""
-      "### Selected packages missing from ELPA"
+      "### Selected packages missing from ELPA (`S \\ I`, JSON: `selected_missing_from_elpa`)"
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_missing_from_elpa data))
       ""
-      "### Ignored non-package ELPA directories"
+      "### Protected non-package ELPA directories"
+      ""
+      (package-audit--markdown-bullets protected-dirs)
+      ""
+      gnupg-note
+      ""
+      "### Ignored non-package ELPA directories (not part of the `R`/`S`/`I` set model)"
       ""
       (package-audit--markdown-bullets
        (alist-get 'ignored_non_package_elpa_directories data))
