@@ -26,27 +26,64 @@
 
 (defun package-audit--markdown-summary-table (counts)
   "Render COUNTS as a Markdown summary table."
-  (string-join
-   (list
-    "| Symbol / Expression | Meaning | Count |"
-    "| --- | --- | ---: |"
-    (format "| `R` | Explicit init roots | %s |"
-            (alist-get 'explicit_init_roots counts))
-    (format "| `S` | Selected packages | %s |"
-            (alist-get 'package_selected_packages counts))
-    (format "| `R \\\\ S` | Explicit init roots missing from package-selected-packages | %s |"
-            (alist-get 'explicit_init_roots_missing_from_package_selected counts))
-    (format "| `S \\\\ R` | Selected packages not explicit in init | %s |"
-            (alist-get 'selected_not_in_init counts))
-    (format "| `(S \\\\ R) ∩ C` | Selected and customize-only packages | %s |"
-            (alist-get 'selected_and_customize_only counts))
-    (format "| `I` | Installed packages | %s |"
-            (alist-get 'installed_packages counts))
-    (format "| `D \\\\ ((R ∪ S) ∩ I)` | Dependency-only retained installs | %s |"
-            (alist-get 'retained_dependency_only counts))
-    (format "| `I \\\\ D` | Definitively purgeable installs | %s |"
-            (alist-get 'definitively_purgeable counts)))
-   "\n"))
+  (let* ((headers '("Symbol / Expression" "Meaning" "Count"))
+         (rows `(("`R`"
+                  "Explicit init roots"
+                  ,(number-to-string (alist-get 'explicit_init_roots counts)))
+                 ("`S`"
+                  "Selected packages"
+                  ,(number-to-string (alist-get 'package_selected_packages counts)))
+                 ("`R \\\\ S`"
+                  "Explicit init roots missing from package-selected-packages"
+                  ,(number-to-string
+                    (alist-get 'explicit_init_roots_missing_from_package_selected counts)))
+                 ("`S \\\\ R`"
+                  "Selected packages not explicit in init"
+                  ,(number-to-string (alist-get 'selected_not_in_init counts)))
+                 ("`(S \\\\ R) ∩ C`"
+                  "Selected and customize-only packages"
+                  ,(number-to-string (alist-get 'selected_and_customize_only counts)))
+                 ("`I`"
+                  "Installed packages"
+                  ,(number-to-string (alist-get 'installed_packages counts)))
+                 ("`D \\\\ ((R ∪ S) ∩ I)`"
+                  "Dependency-only retained installs"
+                  ,(number-to-string (alist-get 'retained_dependency_only counts)))
+                 ("`I \\\\ D`"
+                  "Definitively purgeable installs"
+                  ,(number-to-string (alist-get 'definitively_purgeable counts)))))
+         (widths
+          (cl-loop for col from 0 below (length headers)
+                   collect (apply #'max
+                                  (length (nth col headers))
+                                  (mapcar (lambda (row)
+                                            (length (nth col row)))
+                                          rows)))))
+    (string-join
+     (append
+      (list
+       (concat "| "
+               (mapconcat (lambda (entry)
+                            (format (format "%%-%ds" (car entry)) (cdr entry)))
+                          (cl-mapcar #'cons widths headers)
+                          " | ")
+               " |")
+       (concat "| "
+               (mapconcat (lambda (width)
+                            (make-string width ?-))
+                          widths
+                          " | ")
+               " |"))
+      (mapcar
+       (lambda (row)
+         (concat "| "
+                 (mapconcat (lambda (entry)
+                              (format (format "%%-%ds" (car entry)) (cdr entry)))
+                            (cl-mapcar #'cons widths row)
+                            " | ")
+                 " |"))
+       rows))
+     "\n")))
 
 (defun package-audit--markdown-package-vars (pairs)
   "Render package customization PAIRS as Markdown bullets."
@@ -77,28 +114,107 @@
 
 (defun package-audit--markdown-metadata-table (expression json-key)
   "Return a one-row Markdown table for EXPRESSION and JSON-KEY."
-  (if expression
-      (string-join
-       (list
-        "| Set expression | JSON key |"
-        "| --- | --- |"
-        (format "| `%s` | `%s` |" expression json-key))
-       "\n")
+  (let* ((headers (if expression
+                      '("Set expression" "JSON key")
+                    '("JSON key")))
+         (values (if expression
+                     (list (format "`%s`" expression)
+                           (format "`%s`" json-key))
+                   (list (format "`%s`" json-key))))
+         (widths (cl-mapcar (lambda (header value)
+                              (max (length header) (length value)))
+                            headers values)))
     (string-join
      (list
-      "| JSON key |"
-      "| --- |"
-      (format "| `%s` |" json-key))
+      (concat "| "
+              (mapconcat (lambda (entry)
+                           (format (format "%%-%ds" (car entry)) (cdr entry)))
+                         (cl-mapcar #'cons widths headers)
+                         " | ")
+              " |")
+      (concat "| "
+              (mapconcat (lambda (width)
+                           (make-string width ?-))
+                         widths
+                         " | ")
+              " |")
+      (concat "| "
+              (mapconcat (lambda (entry)
+                           (format (format "%%-%ds" (car entry)) (cdr entry)))
+                         (cl-mapcar #'cons widths values)
+                         " | ")
+              " |"))
      "\n")))
 
-(defun package-audit--markdown-gnupg-note (protected-dirs)
-  "Return a Markdown note for PROTECTED-DIRS when `gnupg' is present."
-  (when (member "gnupg" protected-dirs)
+(defun package-audit--markdown-definitions-table ()
+  "Return the Markdown definitions table with aligned plain-text columns."
+  (let* ((headers '("Term" "Meaning"))
+         (rows
+          '(("Init root"
+             "A third-party package root inferred from init declarations and counted in `R`.")
+            ("Selected package"
+             "A package root listed in `package-selected-packages` and counted in `S`.")
+            ("Installed package"
+             "A package currently present in the ELPA install tree and counted in `I`.")
+            ("Customized package support (`C`)"
+             "Package evidence inferred from Customize-owned variables, used to explain packages that may still be justified outside init declarations.")
+            ("Dependency closure (`D`)"
+             "The retained installed roots and every installed dependency reachable from them.")
+            ("Protected non-package ELPA directory"
+             "Package-manager state under `elpa/` that is intentionally preserved, such as `archives` or `gnupg`.")
+            ("Ignored non-package ELPA directory"
+             "A top-level `elpa/` directory that is not an installed package and is not on the protected list.")))
+         (widths
+          (cl-loop for col from 0 below (length headers)
+                   collect (apply #'max
+                                  (length (nth col headers))
+                                  (mapcar (lambda (row)
+                                            (length (nth col row)))
+                                          rows)))))
     (string-join
-     '("> Note: `elpa/gnupg` was found and is intentionally protected."
-       "> It is package.el's GnuPG home for package signature and trust state,"
-       "> not an ELPA package directory, and package-audit will not suggest or delete it.")
+     (append
+      (list
+       (concat "| "
+               (mapconcat (lambda (entry)
+                            (format (format "%%-%ds" (car entry)) (cdr entry)))
+                          (cl-mapcar #'cons widths headers)
+                          " | ")
+               " |")
+       (concat "| "
+               (mapconcat (lambda (width)
+                            (make-string width ?-))
+                          widths
+                          " | ")
+               " |"))
+      (mapcar
+       (lambda (row)
+         (concat "| "
+                 (mapconcat (lambda (entry)
+                              (format (format "%%-%ds" (car entry)) (cdr entry)))
+                            (cl-mapcar #'cons widths row)
+                            " | ")
+                 " |"))
+       rows))
      "\n")))
+
+(defun package-audit--markdown-protected-dir-notes (protected-dirs)
+  "Return Markdown notes for notable PROTECTED-DIRS."
+  (string-join
+   (delq nil
+         (list
+          (when (member "archives" protected-dirs)
+            (string-join
+             '("> Note: `elpa/archives` was found and is intentionally protected."
+               "> It stores package.el archive index caches such as `archive-contents`,"
+               "> not installed packages, and package-audit will not suggest or delete it.")
+             "\n"))
+          (when (member "gnupg" protected-dirs)
+            (string-join
+             '("> Note: `elpa/gnupg` was found and is intentionally protected."
+               "> It is package.el's GnuPG home for package signature and trust state,"
+               "> not an ELPA package directory, and package-audit will not suggest or delete it.")
+             "\n"))))
+   "\n\n"))
 
 (defun package-audit-render-markdown (data)
   "Render package audit DATA as Markdown."
@@ -106,7 +222,8 @@
          (custom-vars (alist-get 'selected_customize_variables data))
          (reasons (alist-get 'retained_dependency_reasons data))
          (protected-dirs (alist-get 'protected_non_package_elpa_directories data))
-         (gnupg-note (or (package-audit--markdown-gnupg-note protected-dirs) "")))
+         (protected-dir-notes
+          (or (package-audit--markdown-protected-dir-notes protected-dirs) "")))
     (string-join
      (list
       "# Emacs Package Audit"
@@ -215,24 +332,16 @@
       ""
       (package-audit--markdown-bullets protected-dirs)
       ""
-      gnupg-note
+      protected-dir-notes
       ""
       "### Ignored non-package ELPA directories (not part of the `R`/`S`/`I` set model)"
       ""
       (package-audit--markdown-bullets
-       (alist-get 'ignored_non_package_elpa_directories data))
+      (alist-get 'ignored_non_package_elpa_directories data))
       ""
       "## Definitions"
       ""
-      "| Term | Meaning |"
-      "| --- | --- |"
-      "| Init root | A third-party package root inferred from init declarations and counted in `R`. |"
-      "| Selected package | A package root listed in `package-selected-packages` and counted in `S`. |"
-      "| Installed package | A package currently present in the ELPA install tree and counted in `I`. |"
-      "| Customized package support (`C`) | Package evidence inferred from Customize-owned variables, used to explain packages that may still be justified outside init declarations. |"
-      "| Dependency closure (`D`) | The retained installed roots and every installed dependency reachable from them. |"
-      "| Protected non-package ELPA directory | Package-manager state under `elpa/` that is intentionally preserved, such as `archives` or `gnupg`. |"
-      "| Ignored non-package ELPA directory | A top-level `elpa/` directory that is not an installed package and is not on the protected list. |"
+      (package-audit--markdown-definitions-table)
       "")
      "\n")))
 

@@ -54,8 +54,8 @@ set model.
 `ignored_non_package_elpa_directories` is intentionally outside the set
 algebra above. It reports extra top-level directories in the ELPA tree
 that are not installed packages. Protected package-manager state
-directories such as `gnupg` are reported separately and are never
-offered for deletion.
+directories such as `archives` and `gnupg` are reported separately and
+are never offered for deletion.
 
 ## Intended Invariants
 
