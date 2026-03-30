@@ -32,6 +32,8 @@ All remediation commands use prompted confirmation by default, showing you exact
 
 `package-audit` requires **Emacs 27.1 or later**.
 
+**Note:** This package is not yet available on MELPA. It will be submitted in the future. For now, install directly from GitHub using one of the methods below.
+
 ### From GitHub (Emacs 29+)
 
 **Emacs 29+** can use the built-in `:vc` keyword to install directly from GitHub:
@@ -57,8 +59,6 @@ All remediation commands use prompted confirmation by default, showing you exact
    ```
 
 **Note:** `package-audit` will use your `package-selected-packages` from either the custom file or the live variable value. For fresh Emacs installations without a custom file, the package will use the in-memory variable value if available. You can persist selections to a custom file at any time by customizing a variable: `M-x customize-variable RET package-selected-packages RET`
-
-The package will be submitted to MELPA in the future for simpler installation.
 
 ## Quick Start
 
