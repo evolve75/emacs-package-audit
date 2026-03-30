@@ -13,8 +13,8 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'org)
 (require 'package)
+(require 'package-audit-parse)
 (require 'subr-x)
 
 ;; ---------------------------------------------------------------------------
@@ -26,7 +26,17 @@
   :prefix "package-audit-")
 
 (defcustom package-audit-init-source-file "init.org"
-  "Init source file relative to the repository root."
+  "Init source file relative to the repository root.
+
+This variable is deprecated in favor of automatic detection.
+The system now automatically detects the init source file with this precedence:
+  1. init.org (if it exists)
+  2. The file specified by `user-init-file' (if in the repo)
+  3. init.el (as a fallback)
+
+For backward compatibility, this variable is still used as the
+default in documentation, but the actual file used is determined
+by `package-audit--detect-init-source-file'."
   :type 'file
   :group 'package-audit)
 
@@ -71,8 +81,10 @@ For example, `gnupg' is package.el's GnuPG home for package signature data."
   "Repository root for package-audit operations.
 
 This is the starting directory from which package-audit searches upward
-to locate the repository root by finding marker files (init.org and
-customizations/emacs-custom.el).
+to locate the repository root by finding marker files.  The init source
+is detected automatically (preferring init.org, then `user-init-file',
+then init.el), and must be accompanied by the custom state file configured
+via `package-audit-custom-state-file'.
 
 Defaults to `user-emacs-directory' which resolves the canonical Emacs
 configuration directory even when accessed via symlink.
@@ -101,8 +113,14 @@ Most users should not need to customize this value."
   (expand-file-name relative-path repo-root))
 
 (defun package-audit--init-source-path (repo-root)
-  "Return the configured init source path for REPO-ROOT."
-  (package-audit--repo-path repo-root package-audit-init-source-file))
+  "Return the detected init source path for REPO-ROOT.
+Prefers init.org when both init.org and init.el exist."
+  (let ((detected (package-audit--detect-init-source-file repo-root)))
+    (unless detected
+      (user-error "No init source file (init.org or %s) found in %s"
+                  (if user-init-file (file-name-nondirectory user-init-file) "init.el")
+                  repo-root))
+    (package-audit--repo-path repo-root detected)))
 
 (defun package-audit--custom-state-path (repo-root)
   "Return the configured custom state path for REPO-ROOT."
@@ -123,8 +141,9 @@ Most users should not need to customize this value."
   "Return repository root for DIRECTORY or `package-audit-repo-root'.
 
 Searches upward from the starting directory to find the repository root
-by locating marker files configured via `package-audit-init-source-file'
-and `package-audit-custom-state-file'.
+by locating marker files.  The init source can be init.org or the file
+specified by `user-init-file', with init.org preferred when both exist.
+The custom state file location is configured via `package-audit-custom-state-file'.
 
 If DIRECTORY is provided, uses it as the starting point.  Otherwise,
 uses `package-audit-repo-root' (which defaults to `user-emacs-directory')."
@@ -133,9 +152,12 @@ uses `package-audit-repo-root' (which defaults to `user-emacs-directory')."
     (or (locate-dominating-file
          start
          (lambda (candidate)
-           (and (file-exists-p (package-audit--init-source-path candidate))
+           (and (package-audit--detect-init-source-file candidate)
                 (file-exists-p (package-audit--custom-state-path candidate)))))
-        (user-error "Could not locate a package-audit repo root from %s" start))))
+        (user-error "Could not locate a package-audit repo root from %s (looked for init.org or %s alongside %s)"
+                    start
+                    (if user-init-file (file-name-nondirectory user-init-file) "init.el")
+                    package-audit-custom-state-file))))
 
 (defun package-audit--cache-state (repo-root state data &optional report-files)
   "Cache package audit STATE, DATA, and REPORT-FILES for REPO-ROOT."
@@ -196,25 +218,6 @@ uses `package-audit-repo-root' (which defaults to `user-emacs-directory')."
     (list :selected selected
           :variables (package-audit--normalize-symbol-list variables))))
 
-(defun package-audit--read-elisp-forms (content)
-  "Return top-level Emacs Lisp forms parsed from CONTENT."
-  (with-temp-buffer
-    (insert content)
-    (goto-char (point-min))
-    (let (forms)
-      (condition-case nil
-          (while t
-            (push (read (current-buffer)) forms))
-        (end-of-file nil))
-      (nreverse forms))))
-
-(defun package-audit--walk-form (form fn)
-  "Call FN for each cons cell in FORM."
-  (when (consp form)
-    (funcall fn form)
-    (package-audit--walk-form (car form) fn)
-    (package-audit--walk-form (cdr form) fn)))
-
 ;; ---------------------------------------------------------------------------
 ;; Package-root inference helpers
 
@@ -231,58 +234,6 @@ uses `package-audit-repo-root' (which defaults to `user-emacs-directory')."
   (let ((true-path (file-name-as-directory (file-truename path)))
         (true-repo (file-name-as-directory (file-truename repo-dir))))
     (string-prefix-p true-repo true-path)))
-
-(defun package-audit--third-party-root-for-use-package (form repo-dir)
-  "Return explicit third-party package root for `use-package' FORM."
-  (when (and (consp form)
-             (eq (car form) 'use-package)
-             (symbolp (cadr form)))
-    (let* ((package-name (cadr form))
-           (plist (cddr form))
-           (explicit-ensure (plist-member plist :ensure))
-           (ensure (plist-get plist :ensure))
-           (load-path-p (plist-member plist :load-path))
-           (library-path (package-audit--library-path package-name)))
-      (cond
-       ;; `:ensure nil' and `:ensure' without a value are explicit opt-outs.
-       ((and explicit-ensure (null ensure)) nil)
-       ;; Literal `:ensure t' means the feature name is also the package root.
-       ((eq ensure t) package-name)
-       ;; Symbolic `:ensure' captures package aliases such as `tex' -> `auctex'.
-       ((symbolp ensure) ensure)
-       ;; Explicit load-path usage is treated as repo-local configuration.
-       (load-path-p nil)
-       ;; Libraries found inside the repo are first-party, not third-party roots.
-       ((and library-path
-             (not (string-match-p "/elpa/" library-path))
-             (package-audit--path-in-repo-p library-path repo-dir))
-        nil)
-       ;; Non-ELPA libraries outside the repo are left to external provisioning.
-       ((and library-path
-             (not (string-match-p "/elpa/" library-path)))
-        nil)
-       ;; Fall back to the requested package name when the declaration is external.
-       (t package-name)))))
-
-(defun package-audit--explicit-init-roots (init-source repo-dir)
-  "Return explicit third-party package roots declared in INIT-SOURCE."
-  (with-temp-buffer
-    (insert-file-contents init-source)
-    (org-mode)
-    (let (roots)
-      (org-element-map (org-element-parse-buffer) 'src-block
-        (lambda (block)
-          (when (string= (org-element-property :language block) "emacs-lisp")
-            (dolist (form (package-audit--read-elisp-forms
-                           (org-element-property :value block)))
-              (package-audit--walk-form
-               form
-               (lambda (cell)
-                 (let ((root (package-audit--third-party-root-for-use-package
-                              cell repo-dir)))
-                   (when root
-                     (push root roots)))))))))
-      (package-audit--normalize-symbol-list roots))))
 
 ;; ---------------------------------------------------------------------------
 ;; Set helpers and package metadata helpers

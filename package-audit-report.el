@@ -99,6 +99,10 @@
        "\n")
     "- None"))
 
+(defun package-audit--init-source-display-name (repo-root)
+  "Return display name for the init source file in REPO-ROOT."
+  (file-name-nondirectory (package-audit--init-source-path repo-root)))
+
 (defun package-audit--markdown-reasons (pairs packages)
   "Render dependency PAIRS for PACKAGES as Markdown bullets."
   (if packages
@@ -216,21 +220,25 @@
              "\n"))))
    "\n\n"))
 
-(defun package-audit-render-markdown (data)
-  "Render package audit DATA as Markdown."
+(defun package-audit-render-markdown (data &optional repo-root)
+  "Render package audit DATA as Markdown.
+Optional REPO-ROOT enables accurate init source file display."
   (let* ((counts (alist-get 'counts data))
          (custom-vars (alist-get 'selected_customize_variables data))
          (reasons (alist-get 'retained_dependency_reasons data))
          (protected-dirs (alist-get 'protected_non_package_elpa_directories data))
          (protected-dir-notes
-          (or (package-audit--markdown-protected-dir-notes protected-dirs) "")))
+          (or (package-audit--markdown-protected-dir-notes protected-dirs) ""))
+         (init-display-name
+          (if repo-root
+              (package-audit--init-source-display-name repo-root)
+            package-audit-init-source-file)))
     (string-join
      (list
       "# Emacs Package Audit"
       ""
       (format "Generated from `%s`, the configured custom state file, and installed package metadata."
-              (expand-file-name package-audit-init-source-file
-                                (alist-get 'repo_dir data)))
+              init-display-name)
       ""
       "Set model reference: the sections below use the same `R`, `S`, `I`, `C`, and `D` notation described in `package-audit/README.md`."
       ""
@@ -249,7 +257,7 @@
       (package-audit--markdown-bullets
        (alist-get 'explicit_init_roots_missing_from_package_selected data))
       ""
-      "## Selected But Not Explicit In init.org"
+      (format "## Selected But Not Explicit In %s" init-display-name)
       ""
       (package-audit--markdown-metadata-table
        "S \\ R"
@@ -370,7 +378,7 @@ Optional DATA avoids rebuilding the report payload when already available."
       (insert (json-encode audit-data))
       (insert "\n"))
     (with-temp-file markdown-output
-      (insert (package-audit-render-markdown audit-data)))
+      (insert (package-audit-render-markdown audit-data resolved-root)))
     (list :json json-output :markdown markdown-output)))
 
 (defun package-audit--refresh-session (&optional repo-root output-dir open-markdown)

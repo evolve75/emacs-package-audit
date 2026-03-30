@@ -109,6 +109,61 @@ emacs -Q --batch \
 This writes `package-audit.json` and `package-audit.md` into the chosen
 output directory.
 
+## Init Source File Format
+
+`package-audit` supports both Org-mode and Emacs Lisp formats for the init source file.
+
+### File Detection
+
+The system automatically detects the init source file using this precedence:
+
+1. **init.org** - Preferred for literate programming configurations
+2. **user-init-file** - The file Emacs actually loaded (e.g., `init.el`, `.emacs`)
+3. **init.el** - Fallback for batch mode or when user-init-file isn't set
+
+Repository root detection succeeds if any of these files exists alongside
+`customizations/emacs-custom.el`.
+
+When multiple files exist, init.org takes precedence to support configurations
+where init.el is generated from init.org via org-babel-tangle.
+
+### Org Format (init.org)
+
+The tool extracts `use-package` declarations from `emacs-lisp` source blocks:
+
+```org
+* Package Configuration
+
+#+BEGIN_SRC emacs-lisp
+  (use-package magit
+    :ensure t)
+
+  (use-package company
+    :ensure t)
+#+END_SRC
+```
+
+### Elisp Format (init.el)
+
+The tool parses `use-package` declarations directly from the elisp file:
+
+```elisp
+;;; Package Configuration
+
+(use-package magit
+  :ensure t)
+
+(use-package company
+  :ensure t)
+```
+
+### Remediation Output
+
+When using `package-audit-remediate-add-use-package-stubs`:
+
+- For `.org` files: stubs are inserted as Org headings with `#+BEGIN_SRC` blocks
+- For `.el` files: stubs are inserted as elisp comments with plain elisp code
+
 ## Implementation Notes
 
 - Parse `<init-source-file>` source blocks to build `R`

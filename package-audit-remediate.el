@@ -13,6 +13,7 @@
 ;;; Code:
 
 (require 'package-audit-core)
+(require 'package-audit-parse)
 (require 'package-audit-report)
 
 ;; ---------------------------------------------------------------------------
@@ -63,8 +64,30 @@
                (match-beginning 0))
           (point-max)))))
 
-(defun package-audit--insert-use-package-stubs (repo-root packages)
-  "Insert minimal `use-package' stubs for PACKAGES in the init source for REPO-ROOT."
+(defun package-audit--use-package-stub-elisp (packages)
+  "Return elisp format `use-package' stubs for PACKAGES."
+  (concat
+   (mapconcat
+    (lambda (package-name)
+      (format "(use-package %s\n  :ensure t)"
+              (symbol-name package-name)))
+    packages
+    "\n\n")
+   "\n"))
+
+(defun package-audit--find-el-review-section-end ()
+  "Return end position of elisp review section, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward
+           (format "^;;+ %s$" (regexp-quote package-audit-review-heading))
+           nil t)
+      (or (and (re-search-forward "^;;+ [A-Z]" nil t)
+               (match-beginning 0))
+          (point-max)))))
+
+(defun package-audit--insert-use-package-stubs-org (repo-root packages)
+  "Insert `use-package' stubs for PACKAGES in org format init file."
   (let ((init-file (package-audit--init-source-path repo-root))
         (heading-text (package-audit--review-heading-line 1 package-audit-review-heading))
         (subheading-text (package-audit--review-heading-line 2 package-audit-review-subheading))
@@ -80,6 +103,34 @@
           (insert "\n" heading-text))
         (insert "\n" subheading-text "\n" block))
       (write-region nil nil init-file nil 'quiet))))
+
+(defun package-audit--insert-use-package-stubs-el (repo-root packages)
+  "Insert `use-package' stubs for PACKAGES in elisp format init file."
+  (let ((init-file (package-audit--init-source-path repo-root))
+        (heading-comment (format ";;; %s\n" package-audit-review-heading))
+        (subheading-comment (format ";;;; %s\n\n" package-audit-review-subheading))
+        (stubs (package-audit--use-package-stub-elisp packages)))
+    (with-temp-buffer
+      (insert-file-contents init-file)
+      (let ((section-end (package-audit--find-el-review-section-end)))
+        (goto-char (or section-end (point-max)))
+        (unless (bolp) (insert "\n"))
+        (unless section-end
+          (insert "\n" heading-comment))
+        (insert "\n" subheading-comment stubs))
+      (write-region nil nil init-file nil 'quiet))))
+
+(defun package-audit--insert-use-package-stubs (repo-root packages)
+  "Insert minimal `use-package' stubs for PACKAGES in the init source for REPO-ROOT.
+Formats stubs appropriately based on whether the init file is .org or elisp."
+  (let ((init-file (package-audit--init-source-path repo-root)))
+    (cond
+     ((string-suffix-p ".org" init-file)
+      (package-audit--insert-use-package-stubs-org repo-root packages))
+     ((package-audit--init-source-is-elisp-p init-file)
+      (package-audit--insert-use-package-stubs-el repo-root packages))
+     (t
+      (user-error "Unsupported init source file format: %s" init-file)))))
 
 (defun package-audit--delete-package (repo-root package-name)
   "Delete PACKAGE-NAME from the package installation rooted at REPO-ROOT."
