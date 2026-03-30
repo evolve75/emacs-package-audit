@@ -169,9 +169,8 @@ uses `package-audit-repo-root' (which defaults to `user-emacs-directory' when ni
     (or (locate-dominating-file
          start
          (lambda (candidate)
-           (and (package-audit--detect-init-source-file candidate)
-                (file-exists-p (package-audit--custom-state-path candidate)))))
-        (user-error "Could not locate a package-audit repo root from %s (looked for init.org or %s alongside custom state file)"
+           (package-audit--detect-init-source-file candidate)))
+        (user-error "Could not locate a package-audit repo root from %s (looked for init.org or %s)"
                     start
                     (if user-init-file (file-name-nondirectory user-init-file) "init.el")))))
 
@@ -209,30 +208,41 @@ uses `package-audit-repo-root' (which defaults to `user-emacs-directory' when ni
         (lambda (left right)
           (string< (symbol-name left) (symbol-name right)))))
 
-(defun package-audit--read-custom-state (custom-file)
-  "Return selected packages and custom variable payloads from CUSTOM-FILE."
-  (let (selected variables)
-    (dolist (form (package-audit--read-forms custom-file))
-      (when (and (consp form) (eq (car form) 'custom-set-variables))
-        (dolist (entry (cdr form))
-          (let* ((payload (package-audit--quote-payload entry))
-                 (variable (and (consp payload) (car payload))))
-            (cond
-             ((not (consp payload)) nil)
-             ((eq variable 'package-selected-packages)
-              ;; Preserve package.el's selected-package roots as a symbol set.
-              (let ((value (cadr payload)))
-                (setq selected
-                      (package-audit--normalize-symbol-list
-                       (if (and (consp value) (eq (car value) 'quote))
-                           (cadr value)
-                         value)))))
-             ((symbolp variable)
-              ;; Track Customize-backed variables so we can identify
-              ;; packages still justified only by custom-file state.
-              (push variable variables)))))))
-    (list :selected selected
-          :variables (package-audit--normalize-symbol-list variables))))
+(defun package-audit--read-custom-state (state-file)
+  "Return selected packages and custom variable payloads from STATE-FILE.
+
+If STATE-FILE does not exist, falls back to the live `package-selected-packages'
+variable value if available.  This allows package-audit to work with fresh Emacs
+installations that haven't created a custom file yet, as well as configurations
+where selections are managed in-memory."
+  (if (not (file-exists-p state-file))
+      ;; File doesn't exist - use live variable as fallback
+      (list :selected (when (boundp 'package-selected-packages)
+                        (package-audit--normalize-symbol-list package-selected-packages))
+            :variables nil)
+    ;; File exists - parse it
+    (let (selected variables)
+      (dolist (form (package-audit--read-forms state-file))
+        (when (and (consp form) (eq (car form) 'custom-set-variables))
+          (dolist (entry (cdr form))
+            (let* ((payload (package-audit--quote-payload entry))
+                   (variable (and (consp payload) (car payload))))
+              (cond
+               ((not (consp payload)) nil)
+               ((eq variable 'package-selected-packages)
+                ;; Preserve package.el's selected-package roots as a symbol set.
+                (let ((value (cadr payload)))
+                  (setq selected
+                        (package-audit--normalize-symbol-list
+                         (if (and (consp value) (eq (car value) 'quote))
+                             (cadr value)
+                           value)))))
+               ((symbolp variable)
+                ;; Track Customize-backed variables so we can identify
+                ;; packages still justified only by custom-file state.
+                (push variable variables)))))))
+      (list :selected selected
+            :variables (package-audit--normalize-symbol-list variables)))))
 
 ;; ---------------------------------------------------------------------------
 ;; Package-root inference helpers

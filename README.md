@@ -30,18 +30,20 @@ All remediation commands use prompted confirmation by default, showing you exact
 
 ## Installation
 
-### From GitHub (recommended)
+`package-audit` requires **Emacs 27.1 or later**.
 
-Since `package-audit` requires Emacs 30.1, you can use the built-in `:vc` keyword (introduced in Emacs 29) to install directly from GitHub:
+### From GitHub (Emacs 29+)
+
+**Emacs 29+** can use the built-in `:vc` keyword to install directly from GitHub:
 
 ```elisp
 (use-package package-audit
   :vc (:fetcher github :repo "evolve75/emacs-package-audit"))
 ```
 
-The package will be submitted to MELPA in the future for simpler installation.
+### Manual Installation (Emacs 27.1-28.x)
 
-### Manual Installation
+**Emacs 27.1-28.x** users should use manual installation:
 
 1. Clone the repository:
    ```bash
@@ -53,6 +55,10 @@ The package will be submitted to MELPA in the future for simpler installation.
    (add-to-list 'load-path "/path/to/emacs-package-audit")
    (require 'package-audit)
    ```
+
+**Note:** `package-audit` will use your `package-selected-packages` from either the custom file or the live variable value. For fresh Emacs installations without a custom file, the package will use the in-memory variable value if available. You can persist selections to a custom file at any time by customizing a variable: `M-x customize-variable RET package-selected-packages RET`
+
+The package will be submitted to MELPA in the future for simpler installation.
 
 ## Quick Start
 
@@ -164,7 +170,7 @@ The model **intentionally allows drift** so the reports can surface what needs r
 - Classic: `~/.emacs`
 - Custom: Whatever `user-init-file` points to
 
-When both `init.org` and `init.el` exist, `init.org` takes precedence. This supports configurations where `init.el` is generated from `init.org` via `org-babel-tangle`.
+**Important:** If both `init.org` and `init.el` exist, only `init.org` will be parsed. Remove or rename one if you want the other to be used. This supports configurations where `init.el` is generated from `init.org` via `org-babel-tangle`.
 
 #### Org Format (init.org)
 
@@ -242,6 +248,8 @@ The file where Emacs stores `custom-set-variables` output.
 - `~/.config/emacs/custom.el` (if `custom-file` is set, or as fallback)
 
 This file contains `package-selected-packages` and any Customize-set variables. The tool parses it to build `S` and `C`.
+
+**Note:** If the custom file doesn't exist, the tool will use the live `package-selected-packages` variable value from the running Emacs session as a fallback. This allows the tool to work with fresh installations or configurations where selections haven't been persisted to disk yet.
 
 ## Configuration
 
@@ -670,6 +678,8 @@ Simplified as: `I \ D`
 - Backup files (`.DS_Store`, `Thumbs.db`)
 - Editor temporary files
 - Incomplete downloads or failed installations
+- Old package versions that weren't properly cleaned up
+- Corrupted package directories
 - User-created directories
 
 **How to fix:** Use `package-audit-remediate-delete-ignored-directories` to clean them up.
@@ -714,10 +724,30 @@ The package consists of 6 modules:
 ### Dependencies
 
 - **Emacs 27.1+** (for `user-emacs-directory` and modern package.el)
-- **org-mode** (for parsing `init.org` files; already included in Emacs)
+- **org-mode** (for parsing `init.org` files; bundled with all standard Emacs distributions)
 - **Hydra** (optional; for interactive menu)
 
+**Note:** While org-mode is bundled with all standard Emacs distributions, minimal builds may need to install it separately.
+
 No external package dependencies beyond what's shipped with Emacs.
+
+## Troubleshooting
+
+### "Could not locate a package-audit repo root"
+
+This error occurs when the package cannot find your init file.
+
+**Solutions:**
+- Ensure you have `init.org` or `init.el` in your Emacs configuration directory (usually `~/.config/emacs/` or `~/.emacs.d/`)
+- The custom file is optional; the package will use the live `package-selected-packages` variable if the file doesn't exist
+
+### "No generated package-audit report is available"
+
+This means the audit hasn't been run yet or the reports directory isn't accessible.
+
+**Solutions:**
+- Run `M-x package-audit-run` first to generate reports
+- Check that you have write permissions to the reports directory (default: `~/.config/emacs/reports/`)
 
 ## License
 

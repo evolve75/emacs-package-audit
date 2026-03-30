@@ -41,31 +41,31 @@
 
 (defun package-audit--markdown-summary-table (counts)
   "Render COUNTS as a Markdown summary table."
-  (let* ((headers '("Symbol / Expression" "Meaning" "Count"))
+  (let* ((headers '("Set" "Description" "Count"))
          (rows `(("`R`"
-                  "Explicit init roots"
+                  "Packages declared in init"
                   ,(number-to-string (alist-get 'explicit_init_roots counts)))
                  ("`S`"
-                  "Selected packages"
+                  "Packages in package-selected-packages"
                   ,(number-to-string (alist-get 'package_selected_packages counts)))
                  ("`R \\\\ S`"
-                  "Explicit init roots missing from package-selected-packages"
+                  "Declared in init but not selected"
                   ,(number-to-string
                     (alist-get 'explicit_init_roots_missing_from_package_selected counts)))
                  ("`S \\\\ R`"
-                  "Selected packages not explicit in init"
+                  "Selected but not declared in init"
                   ,(number-to-string (alist-get 'selected_not_in_init counts)))
                  ("`(S \\\\ R) ∩ C`"
-                  "Selected and customize-only packages"
+                  "Selected but only via Customize"
                   ,(number-to-string (alist-get 'selected_and_customize_only counts)))
                  ("`I`"
-                  "Installed packages"
+                  "Packages currently installed"
                   ,(number-to-string (alist-get 'installed_packages counts)))
                  ("`D \\\\ ((R ∪ S) ∩ I)`"
-                  "Dependency-only retained installs"
+                  "Installed as dependencies only"
                   ,(number-to-string (alist-get 'retained_dependency_only counts)))
                  ("`I \\\\ D`"
-                  "Definitively purgeable installs"
+                  "Orphaned (safe to delete)"
                   ,(number-to-string (alist-get 'definitively_purgeable counts)))))
          (widths
           (cl-loop for col from 0 below (length headers)
@@ -169,20 +169,20 @@
   "Return the Markdown definitions table with aligned plain-text columns."
   (let* ((headers '("Term" "Meaning"))
          (rows
-          '(("Init root"
-             "A third-party package root inferred from init declarations and counted in `R`.")
-            ("Selected package"
-             "A package root listed in `package-selected-packages` and counted in `S`.")
-            ("Installed package"
-             "A package currently present in the ELPA install tree and counted in `I`.")
-            ("Customized package support (`C`)"
-             "Package evidence inferred from Customize-owned variables, used to explain packages that may still be justified outside init declarations.")
+          '(("Init root (`R`)"
+             "A package you've declared with `use-package :ensure t` in your init file.")
+            ("Selected package (`S`)"
+             "A package listed in `package-selected-packages` (typically managed by package.el).")
+            ("Installed package (`I`)"
+             "A package currently present in your `elpa/` directory.")
+            ("Customized package (`C`)"
+             "A package whose variables you've configured via `M-x customize`. Helps explain packages selected but not declared in init.")
             ("Dependency closure (`D`)"
-             "The retained installed roots and every installed dependency reachable from them.")
-            ("Protected non-package ELPA directory"
-             "Package-manager state under `elpa/` that is intentionally preserved, such as `archives` or `gnupg`.")
-            ("Ignored non-package ELPA directory"
-             "A top-level `elpa/` directory that is not an installed package and is not on the protected list.")))
+             "All selected packages plus every dependency they need, recursively.")
+            ("Protected ELPA directory"
+             "Package manager metadata under `elpa/` (like `archives` or `gnupg`) that should never be deleted.")
+            ("Ignored ELPA directory"
+             "A directory in `elpa/` that isn't recognized as a valid package and isn't protected metadata. May include backups, temp files, incomplete downloads, or old package versions that weren't cleaned up properly.")))
          (widths
           (cl-loop for col from 0 below (length headers)
                    collect (apply #'max
@@ -223,15 +223,13 @@
          (list
           (when (member "archives" protected-dirs)
             (string-join
-             '("> Note: `elpa/archives` was found and is intentionally protected."
-               "> It stores package.el archive index caches such as `archive-contents`,"
-               "> not installed packages, and package-audit will not suggest or delete it.")
+             '("> **Note:** `elpa/archives` contains package index caches (not installed packages)."
+               "> This is package manager metadata and will never be suggested for deletion.")
              "\n"))
           (when (member "gnupg" protected-dirs)
             (string-join
-             '("> Note: `elpa/gnupg` was found and is intentionally protected."
-               "> It is package.el's GnuPG home for package signature and trust state,"
-               "> not an ELPA package directory, and package-audit will not suggest or delete it.")
+             '("> **Note:** `elpa/gnupg` contains package signature verification data."
+               "> This is package manager metadata and will never be suggested for deletion.")
              "\n"))))
    "\n\n"))
 
@@ -252,109 +250,125 @@ Optional REPO-ROOT enables accurate init source file display."
       (format "Generated from `%s`, the configured custom state file, and installed package metadata."
               init-display-name)
       ""
-      "Set model reference: the sections below use the same `R`, `S`, `I`, `C`, and `D` notation described in `package-audit/README.md`."
+      "The sections below use set notation (`R`, `S`, `I`, `C`, `D`) as described in the README."
       ""
       "## Summary"
       ""
       (package-audit--markdown-summary-table counts)
       ""
-      "## Explicit init roots missing from package-selected-packages"
+      "## Declared in init but not in package-selected-packages"
       ""
       (package-audit--markdown-metadata-table
        "R \\ S"
        "explicit_init_roots_missing_from_package_selected")
       ""
-      "These are packages declared explicitly in init but not yet persisted in `package-selected-packages`."
+      "These packages are declared in your init file but aren't yet recorded in `package-selected-packages`."
+      ""
+      "**Fix:** Run `M-x package-audit-remediate-add-selected-packages` to sync them."
       ""
       (package-audit--markdown-bullets
        (alist-get 'explicit_init_roots_missing_from_package_selected data))
       ""
-      (format "## Selected But Not Explicit In %s" init-display-name)
+      (format "## Selected but not declared in %s" init-display-name)
       ""
       (package-audit--markdown-metadata-table
        "S \\ R"
        "selected_not_in_init")
       ""
-      "These are selected package roots that do not currently have an explicit package declaration in init."
+      "These packages are in `package-selected-packages` but don't have a `use-package` declaration in your init file."
+      ""
+      "**Fix:** Run `M-x package-audit-remediate-add-use-package-stubs` to generate declarations, or remove them from selections if unwanted."
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_not_in_init data))
       ""
-      "## Selected And Customize-Only"
+      "## Selected but only configured via Customize"
       ""
       (package-audit--markdown-metadata-table
        "(S \\ R) ∩ C"
        "selected_and_customize_only")
       ""
-      "These packages are absent from init but still appear justified by Customize-owned variables."
+      "These packages aren't declared in init, but you've customized their variables via `M-x customize`. This may be intentional."
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_and_customize_only data))
       ""
-      "## Package Customize Variables"
+      "## Customized variables by package"
       ""
       (package-audit--markdown-metadata-table
        nil
        "selected_customize_variables")
       ""
-      "This is the package-to-variable support map used to understand the `C` portion of the model rather than a standalone set."
+      "Shows which packages own the customization variables you've set. Helps explain why packages in the section above might still be needed."
       ""
       (package-audit--markdown-package-vars custom-vars)
       ""
-      "## Dependency-Only Retained Installs"
+      "## Packages installed as dependencies"
       ""
       (package-audit--markdown-metadata-table
        "D \\ ((R ∪ S) ∩ I)"
        "retained_dependency_only")
       ""
-      "These packages are retained only because they are dependencies of the installed retained roots, not because they are roots themselves."
+      "These packages were installed automatically as dependencies of your selected packages, not because you explicitly chose them."
       ""
       (package-audit--markdown-reasons
        reasons
        (alist-get 'retained_dependency_only data))
       ""
-      "## Definitively Purgeable Installs"
+      "## Orphaned packages (safe to delete)"
       ""
       (package-audit--markdown-metadata-table
        "I \\ D"
        "definitively_purgeable")
       ""
-      "These installed packages are outside the retained dependency closure and are the cleanest removal candidates."
+      "These packages are installed but not needed by any of your selected packages. Safe to delete."
+      ""
+      "**Fix:** Run `M-x package-audit-remediate-delete-purgeable-packages` to remove them."
       ""
       (package-audit--markdown-bullets
        (alist-get 'definitively_purgeable data))
       ""
-      "## Notable Gaps"
+      "## Missing packages (not yet installed)"
       ""
-      "### Explicit roots missing from ELPA"
+      "### Declared in init but not installed"
       ""
       (package-audit--markdown-metadata-table
        "R \\ I"
        "explicit_roots_missing_from_elpa")
       ""
-      "These are explicit init roots that are not currently installed in the ELPA package tree."
+      "These packages are declared in your init file but not installed yet."
+      ""
+      "**Fix:** Run `M-x package-install` for each, or restart Emacs to trigger automatic installation."
       ""
       (package-audit--markdown-bullets
        (alist-get 'explicit_roots_missing_from_elpa data))
       ""
-      "### Selected packages missing from ELPA"
+      "### In package-selected-packages but not installed"
       ""
       (package-audit--markdown-metadata-table
        "S \\ I"
        "selected_missing_from_elpa")
       ""
-      "These are selected packages that are not currently installed in the ELPA package tree."
+      "These packages are in `package-selected-packages` but not installed yet."
+      ""
+      "**Fix:** Run `M-x package-install-selected-packages` to install them."
       ""
       (package-audit--markdown-bullets
        (alist-get 'selected_missing_from_elpa data))
       ""
-      "### Protected non-package ELPA directories"
+      "### Protected directories in elpa/"
       ""
       (package-audit--markdown-bullets protected-dirs)
       ""
       protected-dir-notes
       ""
-      "### Ignored non-package ELPA directories (not part of the `R`/`S`/`I` set model)"
+      "### Extra directories in elpa/ (not packages)"
+      ""
+      "These are directories or files in your `elpa/` folder that aren't recognized as valid packages and aren't protected metadata."
+      ""
+      "Common causes: backup files (`.DS_Store`, `Thumbs.db`), incomplete downloads, corrupted package directories, or old package versions that weren't properly cleaned up."
+      ""
+      "**Fix:** Run `M-x package-audit-remediate-delete-ignored-directories` to clean them up."
       ""
       (package-audit--markdown-bullets
       (alist-get 'ignored_non_package_elpa_directories data))
