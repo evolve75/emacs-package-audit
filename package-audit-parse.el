@@ -33,6 +33,11 @@
 (require 'org)
 (require 'subr-x)
 
+;; Forward declarations for org-element functions
+(declare-function org-element-map "org-element")
+(declare-function org-element-parse-buffer "org-element")
+(declare-function org-element-property "org-element")
+
 ;; Forward declarations for package-audit-core functions
 (declare-function package-audit--repo-path "package-audit-core")
 (declare-function package-audit--normalize-symbol-list "package-audit-core")

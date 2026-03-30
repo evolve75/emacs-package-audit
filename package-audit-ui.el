@@ -66,22 +66,23 @@
   (interactive)
   (package-audit-refresh repo-root output-dir))
 
-(when (require 'hydra nil t)
-  (defhydra package-audit-hydra (:color teal :hint nil)
-    "
+;; Define Hydra menu if available (wrapped to avoid byte-compile warnings)
+(with-eval-after-load 'hydra
+  (eval '(defhydra package-audit-hydra (:color teal :hint nil)
+           "
 Package Audit
 _g_: refresh report      _m_: open markdown    _j_: open json
 _s_: add selected roots  _u_: add stubs        _p_: delete purgeable
 _d_: delete stale dirs   _q_: quit
 "
-    ("g" package-audit-refresh)
-    ("m" package-audit-open-markdown-report)
-    ("j" package-audit-open-json-report)
-    ("s" package-audit-remediate-add-selected-packages)
-    ("u" package-audit-remediate-add-use-package-stubs)
-    ("p" package-audit-remediate-delete-purgeable-packages)
-    ("d" package-audit-remediate-delete-ignored-directories)
-    ("q" nil "quit")))
+           ("g" package-audit-refresh)
+           ("m" package-audit-open-markdown-report)
+           ("j" package-audit-open-json-report)
+           ("s" package-audit-remediate-add-selected-packages)
+           ("u" package-audit-remediate-add-use-package-stubs)
+           ("p" package-audit-remediate-delete-purgeable-packages)
+           ("d" package-audit-remediate-delete-ignored-directories)
+           ("q" nil "quit"))))
 
 (provide 'package-audit-ui)
 ;;; package-audit-ui.el ends here
