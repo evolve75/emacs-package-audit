@@ -6,6 +6,19 @@
 ;; Keywords: convenience, tools, maint
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;;; Commentary:
 
 ;; Core helpers for building the set-based package audit state.
@@ -40,14 +53,21 @@ by `package-audit--detect-init-source-file'."
   :type 'file
   :group 'package-audit)
 
-(defcustom package-audit-custom-state-file "customizations/emacs-custom.el"
-  "Custom state file relative to the repository root."
-  :type 'file
+(defcustom package-audit-custom-state-file nil
+  "Custom state file path.
+Contains package-selected-packages and Customize variables.
+When nil (the default), uses `custom-file' if set, otherwise falls back
+to \"customizations/emacs-custom.el\" relative to repository root."
+  :type '(choice (const :tag "Use custom-file or default" nil)
+                 (file :tag "Custom file path"))
   :group 'package-audit)
 
-(defcustom package-audit-package-install-directory "elpa"
-  "Package install directory relative to the repository root."
-  :type 'directory
+(defcustom package-audit-package-install-directory nil
+  "Package install directory.
+Where package.el stores installed packages.
+When nil (the default), uses `package-user-dir'."
+  :type '(choice (const :tag "Use package-user-dir" nil)
+                 (directory :tag "Custom directory path"))
   :group 'package-audit)
 
 (defcustom package-audit-report-directory
@@ -124,11 +144,20 @@ Prefers init.org when both init.org and init.el exist."
 
 (defun package-audit--custom-state-path (repo-root)
   "Return the configured custom state path for REPO-ROOT."
-  (package-audit--repo-path repo-root package-audit-custom-state-file))
+  (let ((custom-path (or package-audit-custom-state-file
+                         custom-file
+                         "customizations/emacs-custom.el")))
+    (if (file-name-absolute-p custom-path)
+        custom-path
+      (package-audit--repo-path repo-root custom-path))))
 
 (defun package-audit--package-install-path (repo-root)
   "Return the configured package install path for REPO-ROOT."
-  (package-audit--repo-path repo-root package-audit-package-install-directory))
+  (let ((install-dir (or package-audit-package-install-directory
+                         package-user-dir)))
+    (if (file-name-absolute-p install-dir)
+        install-dir
+      (package-audit--repo-path repo-root install-dir))))
 
 (defun package-audit--report-output-directory (repo-root &optional output-dir)
   "Return report output directory for REPO-ROOT and optional OUTPUT-DIR."
