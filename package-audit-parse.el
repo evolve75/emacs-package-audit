@@ -111,11 +111,14 @@ is located in REPO-ROOT.  Returns nil if neither is found."
            (plist (cddr form))
            (explicit-ensure (plist-member plist :ensure))
            (ensure (plist-get plist :ensure))
+           (vc-p (plist-member plist :vc))
            (load-path-p (plist-member plist :load-path))
            (library-path (package-audit--library-path package-name)))
       (cond
        ;; `:ensure nil' and `:ensure' without a value are explicit opt-outs.
        ((and explicit-ensure (null ensure)) nil)
+       ;; `:vc' means package is installed via use-package VC integration.
+       (vc-p package-name)
        ;; Literal `:ensure t' means the feature name is also the package root.
        ((eq ensure t) package-name)
        ;; Symbolic `:ensure' captures package aliases such as `tex' -> `auctex'.
