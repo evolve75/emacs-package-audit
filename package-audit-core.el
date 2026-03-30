@@ -82,20 +82,21 @@ For example, `gnupg' is package.el's GnuPG home for package signature data."
   :type '(repeat string)
   :group 'package-audit)
 
-(defcustom package-audit-repo-root user-emacs-directory
-  "Repository root for package-audit operations.
+(defcustom package-audit-repo-root nil
+  "Starting directory for repository root detection.
 
-This is the starting directory from which package-audit searches upward
-to locate the repository root by finding marker files.  The init source
-is detected automatically (preferring init.org, then `user-init-file',
-then init.el), and must be accompanied by the custom state file configured
-via `package-audit-custom-state-file'.
+When nil (the default), uses `user-emacs-directory' which resolves the
+canonical Emacs configuration directory even when accessed via symlink.
 
-Defaults to `user-emacs-directory' which resolves the canonical Emacs
-configuration directory even when accessed via symlink.
+The system searches upward from this starting directory to locate the
+repository root by finding marker files.  The init source is detected
+automatically (preferring init.org, then `user-init-file', then init.el),
+and must be accompanied by the custom state file configured via
+`package-audit-custom-state-file'.
 
 Most users should not need to customize this value."
-  :type 'directory
+  :type '(choice (const :tag "Use user-emacs-directory" nil)
+                 (directory :tag "Custom directory path"))
   :group 'package-audit)
 
 (defvar package-audit--last-repo-root nil
@@ -160,18 +161,17 @@ specified by `user-init-file', with init.org preferred when both exist.
 The custom state file location is configured via `package-audit-custom-state-file'.
 
 If DIRECTORY is provided, uses it as the starting point.  Otherwise,
-uses `package-audit-repo-root' (which defaults to `user-emacs-directory')."
+uses `package-audit-repo-root' (which defaults to `user-emacs-directory' when nil)."
   (let ((start (file-name-as-directory
-                (expand-file-name (or directory package-audit-repo-root)))))
+                (expand-file-name (or directory package-audit-repo-root user-emacs-directory)))))
     (or (locate-dominating-file
          start
          (lambda (candidate)
            (and (package-audit--detect-init-source-file candidate)
                 (file-exists-p (package-audit--custom-state-path candidate)))))
-        (user-error "Could not locate a package-audit repo root from %s (looked for init.org or %s alongside %s)"
+        (user-error "Could not locate a package-audit repo root from %s (looked for init.org or %s alongside custom state file)"
                     start
-                    (if user-init-file (file-name-nondirectory user-init-file) "init.el")
-                    package-audit-custom-state-file))))
+                    (if user-init-file (file-name-nondirectory user-init-file) "init.el")))))
 
 (defun package-audit--cache-state (repo-root state data &optional report-files)
   "Cache package audit STATE, DATA, and REPORT-FILES for REPO-ROOT."
