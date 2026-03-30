@@ -242,10 +242,7 @@ Optional REPO-ROOT enables accurate init source file display."
          (protected-dirs (alist-get 'protected_non_package_elpa_directories data))
          (protected-dir-notes
           (or (package-audit--markdown-protected-dir-notes protected-dirs) ""))
-         (init-display-name
-          (if repo-root
-              (package-audit--init-source-display-name repo-root)
-            package-audit-init-source-file)))
+         (init-display-name (package-audit--init-source-display-name repo-root)))
     (string-join
      (list
       "# Emacs Package Audit"

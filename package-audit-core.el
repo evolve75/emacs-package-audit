@@ -38,21 +38,6 @@
   :group 'tools
   :prefix "package-audit-")
 
-(defcustom package-audit-init-source-file "init.org"
-  "Init source file relative to the repository root.
-
-This variable is deprecated in favor of automatic detection.
-The system now automatically detects the init source file with this precedence:
-  1. init.org (if it exists)
-  2. The file specified by `user-init-file' (if in the repo)
-  3. init.el (as a fallback)
-
-For backward compatibility, this variable is still used as the
-default in documentation, but the actual file used is determined
-by `package-audit--detect-init-source-file'."
-  :type 'file
-  :group 'package-audit)
-
 (defcustom package-audit-custom-state-file nil
   "Custom state file path.
 Contains package-selected-packages and Customize variables.
