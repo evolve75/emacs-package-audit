@@ -67,6 +67,20 @@ For example, `gnupg' is package.el's GnuPG home for package signature data."
   :type '(repeat string)
   :group 'package-audit)
 
+(defcustom package-audit-repo-root user-emacs-directory
+  "Repository root for package-audit operations.
+
+This is the starting directory from which package-audit searches upward
+to locate the repository root by finding marker files (init.org and
+customizations/emacs-custom.el).
+
+Defaults to `user-emacs-directory' which resolves the canonical Emacs
+configuration directory even when accessed via symlink.
+
+Most users should not need to customize this value."
+  :type 'directory
+  :group 'package-audit)
+
 (defvar package-audit--last-repo-root nil
   "Repository root used for the latest cached package audit state.")
 
@@ -106,9 +120,16 @@ For example, `gnupg' is package.el's GnuPG home for package signature data."
       (expand-file-name target repo-root))))
 
 (defun package-audit--resolve-repo-root (&optional directory)
-  "Return repository root for DIRECTORY or `default-directory'."
+  "Return repository root for DIRECTORY or `package-audit-repo-root'.
+
+Searches upward from the starting directory to find the repository root
+by locating marker files configured via `package-audit-init-source-file'
+and `package-audit-custom-state-file'.
+
+If DIRECTORY is provided, uses it as the starting point.  Otherwise,
+uses `package-audit-repo-root' (which defaults to `user-emacs-directory')."
   (let ((start (file-name-as-directory
-                (expand-file-name (or directory default-directory)))))
+                (expand-file-name (or directory package-audit-repo-root)))))
     (or (locate-dominating-file
          start
          (lambda (candidate)
