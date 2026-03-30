@@ -57,7 +57,7 @@ by `package-audit--detect-init-source-file'."
   "Custom state file path.
 Contains package-selected-packages and Customize variables.
 When nil (the default), uses `custom-file' if set, otherwise falls back
-to \"customizations/emacs-custom.el\" relative to repository root."
+to \"custom.el\" in `user-emacs-directory'."
   :type '(choice (const :tag "Use custom-file or default" nil)
                  (file :tag "Custom file path"))
   :group 'package-audit)
@@ -146,7 +146,7 @@ Prefers init.org when both init.org and init.el exist."
   "Return the configured custom state path for REPO-ROOT."
   (let ((custom-path (or package-audit-custom-state-file
                          custom-file
-                         "customizations/emacs-custom.el")))
+                         (expand-file-name "custom.el" user-emacs-directory))))
     (if (file-name-absolute-p custom-path)
         custom-path
       (package-audit--repo-path repo-root custom-path))))

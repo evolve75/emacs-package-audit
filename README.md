@@ -207,11 +207,10 @@ The tool scans this directory to build `I` (installed packages) and uses package
 
 The file where Emacs stores `custom-set-variables` output.
 
-**Default behavior:** Uses the `custom-file` variable if set in your Emacs configuration. If `custom-file` is nil, falls back to `customizations/emacs-custom.el` (relative to config root).
+**Default behavior:** Uses the `custom-file` variable if set in your Emacs configuration. If `custom-file` is nil, falls back to `custom.el` in `<user-emacs-directory>`.
 
 **Example paths:**
-- `~/.config/emacs/custom.el` (if `custom-file` is set)
-- `~/.config/emacs/customizations/emacs-custom.el` (fallback for this repository)
+- `~/.config/emacs/custom.el` (if `custom-file` is set, or as fallback)
 
 This file contains `package-selected-packages` and any Customize-set variables. The tool parses it to build `S` and `C`.
 
@@ -224,7 +223,7 @@ All customizable variables:
 | **Repository and File Locations** |                                            |                                                     |                                                                                                                                                                 |
 |                                   | `package-audit-repo-root`                  | `user-emacs-directory`                              | Starting directory for repository root detection. Most users should not need to customize this.                                                                 |
 |                                   | `package-audit-init-source-file`           | `"init.org"`                                        | Deprecated in favor of automatic detection. The system now detects `init.org`, `user-init-file`, or `init.el` automatically.                                    |
-|                                   | `package-audit-custom-state-file`          | `nil` (uses `custom-file`)                          | Custom state file path. When nil, uses `custom-file` if set, otherwise falls back to `"customizations/emacs-custom.el"`. Contains `package-selected-packages` and Customize variables. |
+|                                   | `package-audit-custom-state-file`          | `nil` (uses `custom-file`)                          | Custom state file path. When nil, uses `custom-file` if set, otherwise falls back to `"custom.el"` in `<user-emacs-directory>`. Contains `package-selected-packages` and Customize variables. |
 |                                   | `package-audit-package-install-directory`  | `nil` (uses `package-user-dir`)                     | Package install directory. When nil, uses `package-user-dir`. Can be set to a custom directory path (absolute or relative to repository root).                  |
 | **Report Output**                 |                                            |                                                     |                                                                                                                                                                 |
 |                                   | `package-audit-report-directory`           | `(expand-file-name "reports" user-emacs-directory)` | Directory where JSON and Markdown reports are written. Can be absolute or relative. Relative paths are resolved against the audited repository root at runtime. |
