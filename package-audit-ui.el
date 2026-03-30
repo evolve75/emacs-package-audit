@@ -66,8 +66,8 @@
   (interactive)
   (package-audit-refresh repo-root output-dir))
 
-;; Define Hydra menu if available (wrapped to avoid byte-compile warnings)
-(with-eval-after-load 'hydra
+;; Optional Hydra integration (define only if hydra is available)
+(when (require 'hydra nil t)
   (eval '(defhydra package-audit-hydra (:color teal :hint nil)
            "
 Package Audit
