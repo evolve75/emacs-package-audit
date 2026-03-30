@@ -1,4 +1,4 @@
-;;; package-audit.el --- Interactive Emacs package audit entry point -*- lexical-binding: t; -*-
+;;; package-audit.el --- Audit package declarations, selections, and installations -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2026  Anupam Sengupta
 
