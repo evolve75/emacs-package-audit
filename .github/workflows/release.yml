@@ -34,7 +34,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           # Extract section between [VERSION] and next [VERSION] or EOF
-          NOTES=$(awk "/## \[$VERSION\]/,/## \[/ {if (/## \[/ && !/$VERSION/) exit; if (!/## \[$VERSION\]/) print}" CHANGELOG.md)
+          NOTES=$(sed -n "/^## \[$VERSION\]/,/^## \[/p" CHANGELOG.md | sed '1d;$d')
           if [ -z "$NOTES" ]; then
             echo "Error: No CHANGELOG entry found for version $VERSION"
             exit 1
