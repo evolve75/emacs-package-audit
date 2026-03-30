@@ -25,9 +25,35 @@ The package offers four remediation commands:
 
 All remediation commands use prompted confirmation by default, showing you exactly what will change before applying it.
 
+## Installation
+
+### From GitHub (recommended)
+
+Since `package-audit` requires Emacs 30.1, you can use the built-in `:vc` keyword (introduced in Emacs 29) to install directly from GitHub:
+
+```elisp
+(use-package package-audit
+  :vc (:fetcher github :repo "evolve75/emacs-package-audit"))
+```
+
+The package will be submitted to MELPA in the future for simpler installation.
+
+### Manual Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/evolve75/emacs-package-audit.git
+   ```
+
+2. Add to your load path and require:
+   ```elisp
+   (add-to-list 'load-path "/path/to/emacs-package-audit")
+   (require 'package-audit)
+   ```
+
 ## Quick Start
 
-Load the package and run:
+After installation, run:
 
 ```elisp
 M-x package-audit-run
