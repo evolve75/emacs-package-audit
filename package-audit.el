@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026  Anupam Sengupta
 
 ;; Author: Anupam Sengupta <anupamsg@gmail.com>
-;; Version: 1.0.0
+;; Version: 1.0.1
 ;; Package-Requires: ((emacs "27.1"))
 ;; URL: https://github.com/evolve75/emacs-package-audit
 ;; Keywords: convenience, tools, maint

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-03-30
+
+### Fixed
+- Custom file is now optional; falls back to live `package-selected-packages` variable for fresh Emacs installations
+- Byte-compilation warnings for org-element functions (added proper declare-function declarations)
+- Hydra byte-compilation error (wrapped defhydra in eval form)
+- Package-lint warning about with-eval-after-load usage
+- GitHub Actions CI workflow byte-compilation failures
+- CHANGELOG extraction in release workflow (switched from awk to sed)
+
+### Changed
+- Improved markdown report template with clearer language and actionable fix instructions
+- Moved MELPA availability note to start of Installation section in README
+- Enhanced README documentation for edge cases and troubleshooting
+
 ## [1.0.0] - 2026-03-30
 
 ### Added
