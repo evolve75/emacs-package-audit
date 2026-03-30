@@ -1,0 +1,60 @@
+name: MELPA Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  melpa-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emacs
+        uses: purcell/setup-emacs@master
+        with:
+          version: '29.1'
+
+      - name: Install package-lint
+        run: |
+          emacs --batch \
+            --eval "(require 'package)" \
+            --eval "(add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t)" \
+            --eval "(package-initialize)" \
+            --eval "(package-refresh-contents)" \
+            --eval "(package-install 'package-lint)"
+
+      - name: Check MELPA requirements
+        run: |
+          # Check for URL header (required by MELPA)
+          if ! grep -q "^;; URL:" package-audit.el; then
+            echo "Error: Missing URL header in package-audit.el"
+            exit 1
+          fi
+
+          # Check for Version header
+          if ! grep -q "^;; Version:" package-audit.el; then
+            echo "Error: Missing Version header in package-audit.el"
+            exit 1
+          fi
+
+          # Check for Package-Requires
+          if ! grep -q "^;; Package-Requires:" package-audit.el; then
+            echo "Error: Missing Package-Requires header in package-audit.el"
+            exit 1
+          fi
+
+          echo "All MELPA-required headers present"
+
+      - name: Run package-lint with MELPA checks
+        run: |
+          emacs --batch \
+            --eval "(require 'package)" \
+            --eval "(package-initialize)" \
+            --eval "(require 'package-lint)" \
+            --eval "(setq package-lint-main-file \"package-audit.el\")" \
+            -f package-lint-batch-and-exit *.el
