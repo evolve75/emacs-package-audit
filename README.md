@@ -716,6 +716,12 @@ The package consists of 6 modules:
 
 No external package dependencies beyond what's shipped with Emacs.
 
+## License
+
+This package is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
+
+See the [LICENSE](LICENSE) file for the full license text.
+
 ---
 
 **For questions, issues, or contributions, see the project repository.**

@@ -1,0 +1,20 @@
+# Compiled files
+*.elc
+
+# Package management
+*-autoloads.el
+*-pkg.el
+.elpa/
+dist/
+
+# Backups and temp files
+*~
+\#*\#
+.\#*
+
+# But keep project .dir-locals.el
+!.dir-locals.el
+
+# OS files
+.DS_Store
+Thumbs.db

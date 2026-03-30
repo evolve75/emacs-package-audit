@@ -5,6 +5,7 @@
 ;; Author: Anupam Sengupta <anupamsg@gmail.com>
 ;; Version: 1.0.0
 ;; Package-Requires: ((emacs "30.1"))
+;; URL: https://github.com/evolve75/emacs-package-audit
 ;; Keywords: convenience, tools, maint
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 
