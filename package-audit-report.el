@@ -264,8 +264,9 @@ Optional REPO-ROOT enables accurate init source file display."
       ""
       "These packages are declared in your init file but aren't yet recorded in `package-selected-packages`."
       ""
-      "**Fix:** Run `M-x package-audit-remediate-add-selected-packages` to sync them."
-      ""
+      (if (alist-get 'explicit_init_roots_missing_from_package_selected data)
+          "**Fix:** Run `M-x package-audit-remediate-add-selected-packages` to sync them.\n"
+        "")
       (package-audit--markdown-bullets
        (alist-get 'explicit_init_roots_missing_from_package_selected data))
       ""
@@ -277,8 +278,9 @@ Optional REPO-ROOT enables accurate init source file display."
       ""
       "These packages are in `package-selected-packages` but don't have a `use-package` declaration in your init file."
       ""
-      "**Fix:** Run `M-x package-audit-remediate-add-use-package-stubs` to generate declarations, or remove them from selections if unwanted."
-      ""
+      (if (alist-get 'selected_not_in_init data)
+          "**Fix:** Run `M-x package-audit-remediate-add-use-package-stubs` to generate declarations, or remove them from selections if unwanted.\n"
+        "")
       (package-audit--markdown-bullets
        (alist-get 'selected_not_in_init data))
       ""
@@ -323,8 +325,9 @@ Optional REPO-ROOT enables accurate init source file display."
       ""
       "These packages are installed but not needed by any of your selected packages. Safe to delete."
       ""
-      "**Fix:** Run `M-x package-audit-remediate-delete-purgeable-packages` to remove them."
-      ""
+      (if (alist-get 'definitively_purgeable data)
+          "**Fix:** Run `M-x package-audit-remediate-delete-purgeable-packages` to remove them.\n"
+        "")
       (package-audit--markdown-bullets
        (alist-get 'definitively_purgeable data))
       ""
@@ -338,8 +341,9 @@ Optional REPO-ROOT enables accurate init source file display."
       ""
       "These packages are declared in your init file but not installed yet."
       ""
-      "**Fix:** Run `M-x package-install` for each, or restart Emacs to trigger automatic installation."
-      ""
+      (if (alist-get 'explicit_roots_missing_from_elpa data)
+          "**Fix:** Run `M-x package-install` for each, or restart Emacs to trigger automatic installation.\n"
+        "")
       (package-audit--markdown-bullets
        (alist-get 'explicit_roots_missing_from_elpa data))
       ""
@@ -351,8 +355,9 @@ Optional REPO-ROOT enables accurate init source file display."
       ""
       "These packages are in `package-selected-packages` but not installed yet."
       ""
-      "**Fix:** Run `M-x package-install-selected-packages` to install them."
-      ""
+      (if (alist-get 'selected_missing_from_elpa data)
+          "**Fix:** Run `M-x package-install-selected-packages` to install them.\n"
+        "")
       (package-audit--markdown-bullets
        (alist-get 'selected_missing_from_elpa data))
       ""
@@ -368,8 +373,9 @@ Optional REPO-ROOT enables accurate init source file display."
       ""
       "Common causes: backup files (`.DS_Store`, `Thumbs.db`), incomplete downloads, corrupted package directories, or old package versions that weren't properly cleaned up."
       ""
-      "**Fix:** Run `M-x package-audit-remediate-delete-ignored-directories` to clean them up."
-      ""
+      (if (alist-get 'ignored_non_package_elpa_directories data)
+          "**Fix:** Run `M-x package-audit-remediate-delete-ignored-directories` to clean them up.\n"
+        "")
       (package-audit--markdown-bullets
       (alist-get 'ignored_non_package_elpa_directories data))
       ""
