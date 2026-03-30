@@ -3,7 +3,7 @@
 ;; Copyright (C) 2026  Anupam Sengupta
 
 ;; Author: Anupam Sengupta <anupamsg@gmail.com>
-;; Version: 0.1.0
+;; Version: 1.0.0
 ;; Package-Requires: ((emacs "30.1"))
 ;; Keywords: convenience, tools, maint
 ;; SPDX-License-Identifier: GPL-3.0-or-later
