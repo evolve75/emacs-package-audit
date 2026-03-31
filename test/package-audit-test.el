@@ -192,7 +192,15 @@ Returns the path to the created elpa directory."
         ;; Create a minimal package file
         (with-temp-file (expand-file-name (format "%s.el" name) pkg-dir)
           (insert (format ";;; %s.el --- Mock package\n" name)
-                  (format "(provide '%s)\n" name)))))
+                  (format "(provide '%s)\n" name)))
+        ;; Create autoloads file (required by package.el activation)
+        (with-temp-file (expand-file-name (format "%s-autoloads.el" name) pkg-dir)
+          (insert (format ";;; %s-autoloads.el --- autoloads\n" name)
+                  ";;; Code:\n"
+                  (format "(add-to-list 'load-path (directory-file-name\n")
+                  (format "                         (or (file-name-directory #$) (car load-path))))\n")
+                  ";;; Generated autoloads follow.\n"
+                  (format "(provide '%s-autoloads)\n" name)))))
     elpa-dir))
 
 ;; ---------------------------------------------------------------------------
