@@ -50,13 +50,14 @@ TESTS = test/package-audit-test.el \
         test/package-audit-parse-test.el \
         test/package-audit-core-test.el \
         test/package-audit-report-test.el \
+        test/package-audit-remediate-test.el \
         test/package-audit-ui-test.el
 
 # Compiled files
 OBJS = $(SRCS:.el=.elc)
 TEST_OBJS = $(TESTS:.el=.elc)
 
-.PHONY: help test test-all test-parse test-core test-report test-ui compile clean
+.PHONY: help test test-all test-parse test-core test-report test-remediate test-ui compile clean
 
 # Default target
 .DEFAULT_GOAL := help
@@ -67,6 +68,7 @@ help:
 	@echo "  test-parse        - Run parsing tests only"
 	@echo "  test-core         - Run core tests only"
 	@echo "  test-report       - Run report tests only"
+	@echo "  test-remediate    - Run remediation tests only"
 	@echo "  test-ui           - Run UI tests only"
 	@echo "  compile           - Byte-compile all source files"
 	@echo "  clean             - Remove compiled files"
@@ -81,6 +83,7 @@ test-all:
 		-l test/package-audit-parse-test.el \
 		-l test/package-audit-core-test.el \
 		-l test/package-audit-report-test.el \
+		-l test/package-audit-remediate-test.el \
 		-l test/package-audit-ui-test.el \
 		-f ert-run-tests-batch-and-exit
 
@@ -103,6 +106,13 @@ test-report:
 	$(BATCH) \
 		-l test/package-audit-test.el \
 		-l test/package-audit-report-test.el \
+		-f ert-run-tests-batch-and-exit
+
+test-remediate:
+	@echo "Running remediation tests..."
+	$(BATCH) \
+		-l test/package-audit-test.el \
+		-l test/package-audit-remediate-test.el \
 		-f ert-run-tests-batch-and-exit
 
 test-ui:
