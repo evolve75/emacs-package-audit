@@ -169,7 +169,8 @@ Returns an alist suitable for binding to `package-alist'."
 
 (defun package-audit-test-create-elpa-directory (repo-dir package-specs)
   "Create mock ELPA directory structure in REPO-DIR for PACKAGE-SPECS.
-PACKAGE-SPECS is a list of (NAME VERSION) pairs.
+PACKAGE-SPECS is a list of (NAME VERSION) or (NAME VERSION DEPS) triples.
+DEPS is an optional list of (DEP-NAME DEP-VERSION) pairs.
 Creates directories matching package.el naming conventions.
 Returns the path to the created elpa directory."
   (let ((elpa-dir (expand-file-name "elpa" repo-dir)))
@@ -177,10 +178,18 @@ Returns the path to the created elpa directory."
     (dolist (spec package-specs)
       (let* ((name (nth 0 spec))
              (version (nth 1 spec))
+             (deps (nth 2 spec))
              (dir-name (format "%s-%s" name version))
              (pkg-dir (expand-file-name dir-name elpa-dir)))
         (make-directory pkg-dir t)
-        ;; Create a minimal package file to make it look real
+        ;; Create package descriptor file (required by package.el)
+        (with-temp-file (expand-file-name (format "%s-pkg.el" name) pkg-dir)
+          (insert (format "(define-package \"%s\" \"%s\"\n" name version)
+                  (format "  \"Mock package %s\"\n" name)
+                  (if deps
+                      (format "  '%s)\n" deps)
+                    "  nil)\n")))
+        ;; Create a minimal package file
         (with-temp-file (expand-file-name (format "%s.el" name) pkg-dir)
           (insert (format ";;; %s.el --- Mock package\n" name)
                   (format "(provide '%s)\n" name)))))

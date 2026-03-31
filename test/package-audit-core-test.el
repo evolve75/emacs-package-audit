@@ -303,5 +303,121 @@
          (closure (plist-get result :closure)))
     (should (equal closure '(compat dash git-commit magit magit-section transient with-editor)))))
 
+;; ---------------------------------------------------------------------------
+;; State building integration tests
+
+(ert-deftest package-audit-core-test-build-state-aligned ()
+  "Test state building when R = S and I ⊆ D (perfect alignment)."
+  (package-audit-test-with-temp-repo ()
+    (let* ((packages '(magit company))
+           (init-forms (list "(use-package magit\n  :ensure t)"
+                             "(use-package company\n  :ensure t)"))
+           (init-file (package-audit-test-create-el-init init-forms temp-dir))
+           (custom-file (package-audit-test-create-custom-file packages nil temp-dir))
+           (elpa-dir (package-audit-test-create-elpa-directory temp-dir
+                                                                '((magit "3.0.0")
+                                                                  (company "0.9.0")))))
+      (let ((package-audit-custom-state-file custom-file)
+            (package-audit-package-install-directory elpa-dir))
+        (let ((state (package-audit--build-state temp-dir)))
+          ;; R = S (init roots match selected packages)
+          (should (equal (plist-get state :init-roots) '(company magit)))
+          (should (equal (plist-get state :selected) '(company magit)))
+          (should (equal (plist-get state :init-roots-missing-from-selected) '()))
+          (should (equal (plist-get state :selected-not-in-init) '()))
+          ;; No purgeable packages
+          (should (equal (plist-get state :purgeable) '())))))))
+
+(ert-deftest package-audit-core-test-build-state-missing-selected ()
+  "Test state building with packages in R \\ S."
+  (package-audit-test-with-temp-repo ()
+    (let* ((init-packages '(magit company flycheck))
+           (selected-packages '(magit company))
+           (init-forms (list "(use-package magit\n  :ensure t)"
+                             "(use-package company\n  :ensure t)"
+                             "(use-package flycheck\n  :ensure t)"))
+           (init-file (package-audit-test-create-el-init init-forms temp-dir))
+           (custom-file (package-audit-test-create-custom-file selected-packages nil temp-dir)))
+      (let ((package-audit-custom-state-file custom-file))
+        (let ((state (package-audit--build-state temp-dir)))
+          ;; flycheck is in R but not S
+          (should (equal (plist-get state :init-roots) '(company flycheck magit)))
+          (should (equal (plist-get state :selected) '(company magit)))
+          (should (equal (plist-get state :init-roots-missing-from-selected) '(flycheck))))))))
+
+(ert-deftest package-audit-core-test-build-state-missing-init ()
+  "Test state building with packages in S \\ R."
+  (package-audit-test-with-temp-repo ()
+    (let* ((selected-packages '(magit company which-key))
+           (init-forms (list "(use-package magit\n  :ensure t)"
+                             "(use-package company\n  :ensure t)"))
+           (init-file (package-audit-test-create-el-init init-forms temp-dir))
+           (custom-file (package-audit-test-create-custom-file selected-packages nil temp-dir)))
+      (let ((package-audit-custom-state-file custom-file))
+        (let ((state (package-audit--build-state temp-dir)))
+          ;; which-key is in S but not R
+          (should (equal (plist-get state :init-roots) '(company magit)))
+          (should (equal (plist-get state :selected) '(company magit which-key)))
+          (should (equal (plist-get state :selected-not-in-init) '(which-key))))))))
+
+(ert-deftest package-audit-core-test-build-state-purgeable ()
+  "Test identification of purgeable packages in I \\ D."
+  (package-audit-test-with-temp-repo ()
+    (let* ((packages '(magit company))
+           (init-forms (list "(use-package magit\n  :ensure t)"
+                             "(use-package company\n  :ensure t)"))
+           (init-file (package-audit-test-create-el-init init-forms temp-dir))
+           (custom-file (package-audit-test-create-custom-file packages nil temp-dir))
+           ;; Install magit, company, and an orphaned package
+           (elpa-dir (package-audit-test-create-elpa-directory temp-dir
+                                                                '((magit "3.0.0")
+                                                                  (company "0.9.0")
+                                                                  (old-theme "1.0.0")))))
+      (let ((package-audit-custom-state-file custom-file)
+            (package-audit-package-install-directory elpa-dir))
+        (let ((state (package-audit--build-state temp-dir)))
+          ;; old-theme is purgeable (in I but not in D)
+          (should (member 'old-theme (plist-get state :purgeable))))))))
+
+(ert-deftest package-audit-core-test-build-state-customize-only ()
+  "Test identification of customize-only packages."
+  (package-audit-test-with-temp-repo ()
+    (let* ((selected-packages '(magit company custom-theme))
+           (init-forms (list "(use-package magit\n  :ensure t)"
+                             "(use-package company\n  :ensure t)"))
+           (custom-vars '((custom-theme-load-path . '("/themes"))))
+           (init-file (package-audit-test-create-el-init init-forms temp-dir))
+           (custom-file (package-audit-test-create-custom-file selected-packages custom-vars temp-dir)))
+      (let ((package-audit-custom-state-file custom-file))
+        (let ((state (package-audit--build-state temp-dir)))
+          ;; custom-theme is in S \ R
+          (should (equal (plist-get state :selected-not-in-init) '(custom-theme)))
+          ;; custom-theme has customize variables
+          (should (assq 'custom-theme (plist-get state :custom-package-map))))))))
+
+(ert-deftest package-audit-core-test-build-state-complex ()
+  "Test state building with complex realistic scenario."
+  (package-audit-test-with-temp-repo ()
+    (let* ((selected-packages '(magit company flycheck which-key))
+           (init-forms (list "(use-package magit\n  :ensure t)"
+                             "(use-package company\n  :ensure t)"
+                             "(use-package tex\n  :ensure auctex)"))
+           (custom-vars '((company-idle-delay . 0.2)
+                         (which-key-idle-delay . 0.5)))
+           (init-file (package-audit-test-create-el-init init-forms temp-dir))
+           (custom-file (package-audit-test-create-custom-file selected-packages custom-vars temp-dir)))
+      (let ((package-audit-custom-state-file custom-file))
+        (let ((state (package-audit--build-state temp-dir)))
+          ;; R contains: auctex (not tex), company, magit
+          (should (equal (plist-get state :init-roots) '(auctex company magit)))
+          ;; S contains: company, flycheck, magit, which-key
+          (should (equal (plist-get state :selected) '(company flycheck magit which-key)))
+          ;; R \ S: auctex is in init but not selected
+          (should (equal (plist-get state :init-roots-missing-from-selected) '(auctex)))
+          ;; S \ R: flycheck and which-key are selected but not in init
+          (should (equal (plist-get state :selected-not-in-init) '(flycheck which-key)))
+          ;; Customize variables exist
+          (should (equal (plist-get state :custom-variables) '(company-idle-delay which-key-idle-delay))))))))
+
 (provide 'package-audit-core-test)
 ;;; package-audit-core-test.el ends here
