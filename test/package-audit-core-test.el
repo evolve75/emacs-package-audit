@@ -216,5 +216,92 @@
        '(flycheck-disabled-checkers rainbow-delimiters-max-face-count which-key-idle-delay)
        (plist-get state :variables)))))
 
+;; ---------------------------------------------------------------------------
+;; Dependency closure tests
+
+(ert-deftest package-audit-core-test-dependency-closure-simple ()
+  "Test closure with simple linear chain: A → B → C."
+  (let* ((roots '(pkg-a))
+         (deps '((pkg-a pkg-b)
+                 (pkg-b pkg-c)
+                 (pkg-c)))
+         (result (package-audit--dependency-closure roots deps))
+         (closure (plist-get result :closure))
+         (reasons (plist-get result :reasons)))
+    (should (equal closure '(pkg-a pkg-b pkg-c)))
+    (should (equal reasons '((pkg-b . pkg-a) (pkg-c . pkg-b))))))
+
+(ert-deftest package-audit-core-test-dependency-closure-branching ()
+  "Test closure with branching: A → B, A → C."
+  (let* ((roots '(pkg-a))
+         (deps '((pkg-a pkg-b pkg-c)
+                 (pkg-b)
+                 (pkg-c)))
+         (result (package-audit--dependency-closure roots deps))
+         (closure (plist-get result :closure))
+         (reasons (plist-get result :reasons)))
+    (should (equal closure '(pkg-a pkg-b pkg-c)))
+    (should (equal reasons '((pkg-b . pkg-a) (pkg-c . pkg-a))))))
+
+(ert-deftest package-audit-core-test-dependency-closure-diamond ()
+  "Test closure with diamond: A → B, A → C, B → D, C → D."
+  (let* ((roots '(pkg-a))
+         (deps '((pkg-a pkg-b pkg-c)
+                 (pkg-b pkg-d)
+                 (pkg-c pkg-d)
+                 (pkg-d)))
+         (result (package-audit--dependency-closure roots deps))
+         (closure (plist-get result :closure))
+         (reasons (plist-get result :reasons)))
+    (should (equal closure '(pkg-a pkg-b pkg-c pkg-d)))
+    ;; pkg-d should be attributed to whichever of pkg-b or pkg-c was processed first
+    (should (= (length reasons) 3))))
+
+(ert-deftest package-audit-core-test-dependency-closure-empty ()
+  "Test closure with no dependencies."
+  (let* ((roots '(pkg-a pkg-b))
+         (deps '((pkg-a)
+                 (pkg-b)))
+         (result (package-audit--dependency-closure roots deps))
+         (closure (plist-get result :closure))
+         (reasons (plist-get result :reasons)))
+    (should (equal closure '(pkg-a pkg-b)))
+    (should (equal reasons '()))))
+
+(ert-deftest package-audit-core-test-dependency-closure-reasons ()
+  "Test that dependency reasons are tracked correctly."
+  (let* ((roots '(pkg-a pkg-b))
+         (deps '((pkg-a pkg-x pkg-y)
+                 (pkg-b pkg-z)
+                 (pkg-x)
+                 (pkg-y)
+                 (pkg-z)))
+         (result (package-audit--dependency-closure roots deps))
+         (closure (plist-get result :closure))
+         (reasons (plist-get result :reasons)))
+    (should (equal closure '(pkg-a pkg-b pkg-x pkg-y pkg-z)))
+    ;; Verify each dependency has a reason
+    (should (assq 'pkg-x reasons))
+    (should (assq 'pkg-y reasons))
+    (should (assq 'pkg-z reasons))
+    ;; Verify reasons point to roots
+    (should (eq (alist-get 'pkg-x reasons) 'pkg-a))
+    (should (eq (alist-get 'pkg-y reasons) 'pkg-a))
+    (should (eq (alist-get 'pkg-z reasons) 'pkg-b))))
+
+(ert-deftest package-audit-core-test-dependency-closure-complex ()
+  "Test closure with complex multi-level dependencies."
+  (let* ((roots '(magit))
+         (deps '((magit dash git-commit magit-section transient with-editor)
+                 (git-commit with-editor)
+                 (with-editor compat)
+                 (magit-section dash)
+                 (transient compat)
+                 (dash)
+                 (compat)))
+         (result (package-audit--dependency-closure roots deps))
+         (closure (plist-get result :closure)))
+    (should (equal closure '(compat dash git-commit magit magit-section transient with-editor)))))
+
 (provide 'package-audit-core-test)
 ;;; package-audit-core-test.el ends here
