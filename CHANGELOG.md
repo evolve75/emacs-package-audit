@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-03-31
+
+### Added
+- Comprehensive test suite with 114 tests covering all modules
+- Test infrastructure with dynamic fixture generation and mock ELPA directories
+- Integration tests for end-to-end workflows (fresh install, migration, cleanup, round-trip)
+- UI tests for entry points and interactive commands
+- Report generation tests for JSON and Markdown output
+- Remediation operation tests with file I/O validation
+- Core set operation tests (union, difference, intersection)
+- Parsing tests for init.org and init.el file detection and use-package extraction
+- Dependency closure computation tests
+- State building integration tests
+- Makefile targets for granular test execution (test-parse, test-core, test-report, test-remediate, test-ui, test-integration)
+- GitHub Actions CI integration running tests across Emacs versions 27.1 through snapshot
+- Tests workflow status badge in README
+
 ## [1.0.3] - 2026-03-30
 
 ### Changed
