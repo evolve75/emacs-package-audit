@@ -28,7 +28,4 @@ jobs:
           version: ${{ matrix.emacs_version }}
 
       - name: Run tests
-        run: |
-          # When tests exist, run them here
-          # emacs --batch -L . -l test/package-audit-test.el -f ert-run-tests-batch-and-exit
-          echo "No tests yet - this workflow is a placeholder"
+        run: make test
