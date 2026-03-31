@@ -160,5 +160,61 @@
     (should (equal (package-audit--symbol-intersection left right)
                    '(company magit)))))
 
+;; ---------------------------------------------------------------------------
+;; Custom state reading tests
+
+(ert-deftest package-audit-core-test-read-custom-state-with-file ()
+  "Test reading custom state from existing custom.el."
+  (package-audit-test-with-temp-repo ()
+    (let* ((selected-packages '(magit company flycheck))
+           (custom-file (package-audit-test-create-custom-file selected-packages nil temp-dir))
+           (state (package-audit--read-custom-state custom-file)))
+      (should (equal (plist-get state :selected) '(company flycheck magit)))
+      (should (equal (plist-get state :variables) '())))))
+
+(ert-deftest package-audit-core-test-read-custom-state-no-file ()
+  "Test fallback to live package-selected-packages variable."
+  (package-audit-test-with-temp-repo ()
+    (let* ((nonexistent-file (expand-file-name "nonexistent.el" temp-dir))
+           (package-selected-packages '(magit company))
+           (state (package-audit--read-custom-state nonexistent-file)))
+      (should (equal (plist-get state :selected) '(company magit)))
+      (should (equal (plist-get state :variables) '())))))
+
+(ert-deftest package-audit-core-test-read-custom-state-empty-file ()
+  "Test reading custom file with no package-selected-packages."
+  (package-audit-test-with-temp-repo ()
+    (let* ((custom-file (package-audit-test-create-custom-file nil nil temp-dir))
+           (state (package-audit--read-custom-state custom-file)))
+      (should (equal (plist-get state :selected) '()))
+      (should (equal (plist-get state :variables) '())))))
+
+(ert-deftest package-audit-core-test-read-custom-variables ()
+  "Test extraction of customize variables."
+  (package-audit-test-with-temp-repo ()
+    (let* ((selected-packages '(magit company))
+           (variables '((magit-display-buffer-function . magit-display-buffer-fullframe-status-v1)
+                        (company-idle-delay . 0.2)))
+           (custom-file (package-audit-test-create-custom-file selected-packages variables temp-dir))
+           (state (package-audit--read-custom-state custom-file)))
+      (should (equal (plist-get state :selected) '(company magit)))
+      (package-audit-test-assert-symbol-list-equal
+       '(company-idle-delay magit-display-buffer-function)
+       (plist-get state :variables)))))
+
+(ert-deftest package-audit-core-test-read-custom-mixed ()
+  "Test custom file with both selections and variables."
+  (package-audit-test-with-temp-repo ()
+    (let* ((selected-packages '(flycheck which-key rainbow-delimiters))
+           (variables '((flycheck-disabled-checkers . '(emacs-lisp-checkdoc))
+                        (which-key-idle-delay . 0.5)
+                        (rainbow-delimiters-max-face-count . 9)))
+           (custom-file (package-audit-test-create-custom-file selected-packages variables temp-dir))
+           (state (package-audit--read-custom-state custom-file)))
+      (should (equal (plist-get state :selected) '(flycheck rainbow-delimiters which-key)))
+      (package-audit-test-assert-symbol-list-equal
+       '(flycheck-disabled-checkers rainbow-delimiters-max-face-count which-key-idle-delay)
+       (plist-get state :variables)))))
+
 (provide 'package-audit-core-test)
 ;;; package-audit-core-test.el ends here
