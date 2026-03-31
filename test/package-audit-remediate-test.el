@@ -315,14 +315,18 @@
            (init-file (package-audit-test-create-el-init init-forms temp-dir))
            (custom-file (package-audit-test-create-custom-file selected-packages nil temp-dir))
            (saved-value nil))
-      ;; Mock customize-save-variable and y-or-n-p
+      ;; Mock customize-save-variable, y-or-n-p, yes-or-no-p, message, and pop-to-buffer
       (cl-letf (((symbol-function 'customize-save-variable)
                  (lambda (symbol value)
                    (setq saved-value value)))
                 ((symbol-function 'y-or-n-p)
                  (lambda (_prompt) t))
+                ((symbol-function 'yes-or-no-p)
+                 (lambda (_prompt) t))
                 ((symbol-function 'message)
-                 (lambda (&rest _args) nil)))
+                 (lambda (&rest _args) nil))
+                ((symbol-function 'pop-to-buffer)
+                 (lambda (_buffer) nil)))
         (let ((package-audit-custom-state-file custom-file))
           (package-audit-remediate-add-selected-packages temp-dir)
           ;; Verify magit was added to saved selections

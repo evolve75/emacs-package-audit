@@ -51,13 +51,14 @@ TESTS = test/package-audit-test.el \
         test/package-audit-core-test.el \
         test/package-audit-report-test.el \
         test/package-audit-remediate-test.el \
-        test/package-audit-ui-test.el
+        test/package-audit-ui-test.el \
+        test/package-audit-integration-test.el
 
 # Compiled files
 OBJS = $(SRCS:.el=.elc)
 TEST_OBJS = $(TESTS:.el=.elc)
 
-.PHONY: help test test-all test-parse test-core test-report test-remediate test-ui compile clean
+.PHONY: help test test-all test-parse test-core test-report test-remediate test-ui test-integration compile clean
 
 # Default target
 .DEFAULT_GOAL := help
@@ -70,6 +71,7 @@ help:
 	@echo "  test-report       - Run report tests only"
 	@echo "  test-remediate    - Run remediation tests only"
 	@echo "  test-ui           - Run UI tests only"
+	@echo "  test-integration  - Run integration tests only"
 	@echo "  compile           - Byte-compile all source files"
 	@echo "  clean             - Remove compiled files"
 	@echo "  help              - Show this help message"
@@ -85,6 +87,7 @@ test-all:
 		-l test/package-audit-report-test.el \
 		-l test/package-audit-remediate-test.el \
 		-l test/package-audit-ui-test.el \
+		-l test/package-audit-integration-test.el \
 		-f ert-run-tests-batch-and-exit
 
 test-parse:
@@ -120,6 +123,13 @@ test-ui:
 	$(BATCH) \
 		-l test/package-audit-test.el \
 		-l test/package-audit-ui-test.el \
+		-f ert-run-tests-batch-and-exit
+
+test-integration:
+	@echo "Running integration tests..."
+	$(BATCH) \
+		-l test/package-audit-test.el \
+		-l test/package-audit-integration-test.el \
 		-f ert-run-tests-batch-and-exit
 
 compile:
