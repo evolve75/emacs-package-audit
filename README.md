@@ -1,5 +1,6 @@
 # package-audit
 
+[![Tests](https://github.com/evolve75/emacs-package-audit/workflows/Tests/badge.svg)](https://github.com/evolve75/emacs-package-audit/actions/workflows/test.yml)
 [![CI](https://github.com/evolve75/emacs-package-audit/workflows/CI/badge.svg)](https://github.com/evolve75/emacs-package-audit/actions/workflows/ci.yml)
 [![MELPA Check](https://github.com/evolve75/emacs-package-audit/workflows/MELPA%20Check/badge.svg)](https://github.com/evolve75/emacs-package-audit/actions/workflows/melpa-check.yml)
 
