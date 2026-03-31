@@ -1,7 +1,38 @@
 # Makefile for package-audit
+#
+# Copyright (C) 2026  Anupam Sengupta
+#
+# Author: Anupam Sengupta <anupamsg@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This file is not part of GNU Emacs.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-# Emacs binary (can be overridden)
-EMACS ?= emacs
+# Emacs binary detection
+# On macOS, prefer Emacs.app if available, otherwise fall back to CLI emacs
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    EMACS_APP := /Applications/Emacs.app/Contents/MacOS/Emacs
+    ifneq ("$(wildcard $(EMACS_APP))","")
+        EMACS ?= $(EMACS_APP)
+    else
+        EMACS ?= emacs
+    endif
+else
+    EMACS ?= emacs
+endif
 
 # Batch mode command prefix
 BATCH = $(EMACS) --batch -Q -L . -L test
@@ -24,6 +55,9 @@ OBJS = $(SRCS:.el=.elc)
 TEST_OBJS = $(TESTS:.el=.elc)
 
 .PHONY: help test test-all test-parse test-core compile clean
+
+# Default target
+.DEFAULT_GOAL := help
 
 help:
 	@echo "Available targets:"
